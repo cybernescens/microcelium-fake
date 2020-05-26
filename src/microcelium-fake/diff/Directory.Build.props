@@ -1,0 +1,16 @@
+<Project>
+  <PropertyGroup>
+    <Authors>microcelium</Authors>
+    <Copyright>Copyright microcelium @ {year}</Copyright>
+    <Product>{project}</Product>
+    <GenerateDocumentationFile Condition="'$(GenerateDocumentationFile)' ==''">true</GenerateDocumentationFile>
+    <DebugType>portable</DebugType>
+    <DebugSymbols>true</DebugSymbols>
+    <IncludeSymbolsInPackage>true</IncludeSymbolsInPackage>
+    <LangVersion>8</LangVersion>
+    <AllowedOutputExtensionsInPackageBuildOutputFolder>$(AllowedOutputExtensionsInPackageBuildOutputFolder);.pdb;</AllowedOutputExtensionsInPackageBuildOutputFolder>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <DefineConstants Condition="'$(COMPUTERNAME)' == 'joe-nuc'">$(DefineConstants);DEVELOPER_MACHINE</DefineConstants>
+  </PropertyGroup>
+</Project>

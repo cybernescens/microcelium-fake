@@ -1,0 +1,12 @@
+<Project>
+  <PropertyGroup>
+    <GenerateDocumentationFile Condition="'$(GenerateDocumentationFile)' ==''">true</GenerateDocumentationFile>
+    <DebugType Condition="'$(DebugType)' ==''">portable</DebugType>
+    <DebugSymbols Condition="'$(DebugSymbols)' ==''">true</DebugSymbols>
+    <IncludeSymbolsInPackage Condition="'$(IncludeSymbolsInPackage)' == ''">true</IncludeSymbolsInPackage>
+    <AllowedOutputExtensionsInPackageBuildOutputFolder>$(AllowedOutputExtensionsInPackageBuildOutputFolder);.pdb;</AllowedOutputExtensionsInPackageBuildOutputFolder>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <SolutionSpaceRoot>$(MSBuildThisFileDirectory)</SolutionSpaceRoot>
+  </PropertyGroup>
+</Project>

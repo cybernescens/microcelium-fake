@@ -1,0 +1,53 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>netcoreapp3.1</TargetFramework>
+    <PackAsTool>True</PackAsTool>
+    <ToolCommandName>microcelium-fake</ToolCommandName>
+    <NoPackageAnalysis>true</NoPackageAnalysis>
+    <CompileLib>true</CompileLib>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(CompileLib)' == 'true'">
+    <PackageReference Include="AWSSDK.S3" Version="3.3.23" />
+    <PackageReference Include="Fake.BuildServer.TeamCity" Version="5.15.4" />
+    <PackageReference Include="Fake.Core.Target" Version="5.15.4" />
+    <PackageReference Include="Fake.DotNet.Cli" Version="5.15.4" />
+    <PackageReference Include="Fake.IO.Zip" Version="5.15.4" />
+    <PackageReference Include="Fake.Runtime" Version="5.15.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FSharp.CommandLine" Version="3.1.3294.2201" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="lib\*.*" Condition="'$(CompileLib)' == 'false'">
+      <Pack>true</Pack>
+      <PackagePath>content\lib</PackagePath>
+    </Content>
+    <Compile Include="lib\*.*" Condition="'$(CompileLib)' == 'true'" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="examples\*.*">
+      <Pack>true</Pack>
+      <PackagePath>content\examples</PackagePath>
+    </Content>
+    <Compile Include="examples\*.fsx" Condition="'$(CompileLib)' == 'true'" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="diff\*.*">
+      <Pack>true</Pack>
+      <PackagePath>content\diff</PackagePath>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="shared.fs" />
+    <Compile Include="program.fs" />
+  </ItemGroup>
+
+</Project>
