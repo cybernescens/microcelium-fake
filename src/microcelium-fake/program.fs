@@ -66,11 +66,16 @@ let bootstrapCommand =
     opt noDelete in noDeleteFlag |> CommandOption.zeroOrExactlyOne |> CommandOption.whenMissingUse false
     opt includeSelenium in seleniumFlag |> CommandOption.whenMissingUse false
 
+    let (shell, commandArg) =
+      match System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows) with
+      | true -> ("cmd.exe", "/C")
+      | false -> ("/bin/bash", "-c")
+
     let fakeDir = dir @@ ".fake"
     let microceliumDir = dir @@ ".microcelium"
     let targetLibDir = microceliumDir @@ "lib"
     let rootUri =  new System.Uri (microceliumDir, System.UriKind.Absolute)
-    let cmdArgs = sprintf "/C dotnet tool install fake-cli --tool-path %s --version 5.*" fakeDir
+    let cmdArgs = sprintf "%s \"dotnet tool install fake-cli --tool-path %s --version 5.* \"" commandArg fakeDir
     let assemblyLocation = System.Reflection.Assembly.GetExecutingAssembly().Location
 
     if not <| quiet then
@@ -102,7 +107,6 @@ let bootstrapCommand =
         ("(*#load \".fake/build.fsx/intellisense.fsx\"*)", "#load \".fake/build.fsx/intellisense.fsx\"")
         ("(* selenium", if includeSelenium then "//(* selenium" else "(* selenium")
       ]
-
     match System.IO.Directory.Exists dir with
     | true ->
       match System.IO.Directory.Exists fakeDir with
@@ -110,8 +114,9 @@ let bootstrapCommand =
           printfn "fake not installed, installing..."
           let si = System.Diagnostics.ProcessStartInfo
                       ( WindowStyle = System.Diagnostics.ProcessWindowStyle.Hidden,
-                        FileName = "cmd.exe",
-                        Arguments = cmdArgs )
+                        FileName = shell,
+                        Arguments = cmdArgs,
+                        UseShellExecute = false )
           use p = new System.Diagnostics.Process ( StartInfo = si )
           p.Start () |> ignore
           p.WaitForExit (60 * 1000) |> ignore

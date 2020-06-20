@@ -14,5 +14,5 @@ then
     dotnet tool install microcelium-fake --tool-path $microceliumd --version 1.*
 fi
 
-$microcelium/microcelium-fake -q
+$microceliumd/microcelium-fake -q
 $faked/fake run build.fsx "$@"

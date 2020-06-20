@@ -20,8 +20,9 @@ CoreTracing.ensureConsoleListener ()
 
 let runPublish = (Environment.environVarOrDefault "PUBLISH" "1") = "1"
 let runCleanup = (Environment.environVarOrDefault "CLEANUP" "1") = "1"
+let release = (Environment.environVarOrDefault "Release" "0") = "1"
 
-let versionMajorMinor = "1.1"
+let versionMajorMinor = "1.0"
 
 /// gets a list of properties that is passable to MSBuild, also configuring version properties and appends an existings list
 let inline msbPropertiesAppend version (exist: (string * string) list) =
@@ -39,10 +40,15 @@ let incVer (v : string) =
           | [|maj;min|]     -> sprintf "%d.%d" (int maj) (int min + 1)
           | _               -> failwithf "Cannot understand version: '%s'" v)
 
+// let (versionPrefix, versionSuffix) =
+//     match Fake.Core.BuildServer.buildServer with
+//     | TeamCity  -> (makeVer versionMajorMinor Fake.Core.BuildServer.buildVersion, "")
+//     | _         -> (makeVer (incVer versionMajorMinor) "0", "developer")
+
 let (versionPrefix, versionSuffix) =
-    match Fake.Core.BuildServer.buildServer with
-    | TeamCity  -> (makeVer versionMajorMinor Fake.Core.BuildServer.buildVersion, "")
-    | _         -> (makeVer (incVer versionMajorMinor) "0", "developer")
+    match release with
+    | true  -> (makeVer versionMajorMinor "0", "")
+    | false -> (makeVer (incVer versionMajorMinor) "0", "developer")
 
 let version =
   match versionSuffix with
