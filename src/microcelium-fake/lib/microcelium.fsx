@@ -132,9 +132,10 @@ module Version =
     v.Split '.'
     |> (fun x ->
           match x with
-            | [|maj;min;pat|] -> sprintf "%d.%d.%d" (int maj) (int min) (int pat + 1 )
-            | [|maj;min|]     -> sprintf "%d.%d" (int maj) (int min + 1)
-            | _               -> failwithf "Cannot understand version: '%s'" v)
+            | [|maj;min;pat|]            -> sprintf "%d.%d.%d" (int maj) (int min) (int pat + 1 )
+            | [|maj;min|] when min = "9" -> sprintf "%d.%d" (int maj + 1) 0
+            | [|maj;min|]                -> sprintf "%d.%d" (int maj) (int min + 1)
+            | _                          -> failwithf "Cannot understand version: '%s'" v)
 
   /// creates a version from either "major.minor" or "major.minor.patch" form
   let from v =
