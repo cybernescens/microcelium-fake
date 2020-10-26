@@ -9,6 +9,10 @@ trigger:
 pool:
   vmImage: 'ubuntu-latest'
 
+variables:
+- name: Release
+  value: 1
+
 steps:
 - bash: ./build.sh
   displayName: 'Invoke build.sh'
