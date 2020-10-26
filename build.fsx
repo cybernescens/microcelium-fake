@@ -20,7 +20,7 @@ CoreTracing.ensureConsoleListener ()
 
 let runPublish = (Environment.environVarOrDefault "PUBLISH" "1") = "1"
 let runCleanup = (Environment.environVarOrDefault "CLEANUP" "1") = "1"
-let release = (Environment.environVarOrDefault "Release" "0") = "1"
+let release = (Environment.environVarOrDefault "RELEASE" "0") = "1"
 
 let versionMajorMinor = "1.0"
 
@@ -44,11 +44,6 @@ let incVer (v : string) =
         match x with
           | [|maj;min|]     -> sprintf "%d.%d" (int maj) (int min + 1)
           | _               -> failwithf "Cannot understand version: '%s'" v)
-
-// let (versionPrefix, versionSuffix) =
-//     match Fake.Core.BuildServer.buildServer with
-//     | TeamCity  -> (makeVer versionMajorMinor Fake.Core.BuildServer.buildVersion, "")
-//     | _         -> (makeVer (incVer versionMajorMinor) "0", "developer")
 
 let (versionPrefix, versionSuffix) =
     match release with
@@ -92,6 +87,8 @@ Target.create "Version" (fun _ ->
   Trace.logfn "versionPrefix:     %s" versionPrefix
   Trace.logfn "versionSuffix:     %s" versionSuffix
   Trace.logfn "version:           %s" version
+  Trace.logfn "env RELEASE:       %s" <| Environment.environVarOrDefault "RELEASE" "0"
+  Trace.logfn "buildServer        %s" <| string Fake.Core.BuildServer.buildServer
 
   if Fake.Core.BuildServer.buildServer <> LocalBuild then
     Trace.setBuildNumber version
