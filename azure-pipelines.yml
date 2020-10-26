@@ -15,13 +15,11 @@ variables:
 
 steps:
 - bash: ./build.sh
-  displayName: 'Invoke build.sh'
 - task: NuGetAuthenticate@0
-  displayName: 'NuGet Authenticate'
 - task: NuGetCommand@2
-  displayName: 'NuGet push'
   inputs:
-    command: push
-    publishVstsFeed: 'Libraries/DataDx-DotnetTools'
-    packagesToPush: '$(Build.ArtifactStagingDirectory)/**/*.nupkg;!$(Build.ArtifactStagingDirectory)/**/*.symbols.nupkg'
+    command: 'push'
+    packagesToPush: '$(Build.ArtifactStagingDirectory)/**/*.nupkg'
+    nuGetFeedType: 'internal'
+    publishVstsFeed: '3b7f4a3f-fd2f-404e-8fe0-85ad6b6c950f/41c3678c-0c57-4e19-a2f9-7901be25c9b8'
     allowPackageConflicts: true
