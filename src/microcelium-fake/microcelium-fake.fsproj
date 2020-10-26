@@ -10,7 +10,8 @@
   </PropertyGroup>
 
   <ItemGroup Condition="'$(CompileLib)' == 'true'">
-    <PackageReference Include="AWSSDK.S3" Version="3.3.23" />
+    <PackageReference Include="FSharp.Compiler.Service" version="37.0.0" />
+    <PackageReference Include="Fake.BuildServer.TeamFoundation" Version="5.15.4" />
     <PackageReference Include="Fake.BuildServer.TeamCity" Version="5.15.4" />
     <PackageReference Include="Fake.Core.Target" Version="5.15.4" />
     <PackageReference Include="Fake.DotNet.Cli" Version="5.15.4" />
@@ -21,6 +22,11 @@
   <ItemGroup>
     <PackageReference Include="FSharp.CommandLine" Version="3.1.3294.2201" />
   </ItemGroup>
+
+  <Target Name="PrintVariables"
+          BeforeTargets="GenerateBindingRedirects">
+    <Message Text="Value of CompileLib = `$(CompileLib)`" Importance="High" />
+  </Target>
 
   <ItemGroup>
     <Content Include="lib\*.*" Condition="'$(CompileLib)' == 'false'">

@@ -1,4 +1,5 @@
 ﻿open FSharp.CommandLine
+open Shared
 
 let forceFlag =
   commandFlag {
@@ -97,6 +98,9 @@ let bootstrapCommand =
       printfn "project prefix is `%s`" prefix
       printfn "force is `%b`" force
       printfn "includeSelenium is `%b`" includeSelenium
+
+    let xvar ="hello"
+    let y = xvar
 
     let tokens =
       [

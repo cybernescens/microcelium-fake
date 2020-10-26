@@ -1,5 +1,6 @@
 <Project>
   <PropertyGroup>
+    <Company>DataDx</Company>
     <GenerateDocumentationFile Condition="'$(GenerateDocumentationFile)' ==''">true</GenerateDocumentationFile>
     <DebugType Condition="'$(DebugType)' ==''">portable</DebugType>
     <DebugSymbols Condition="'$(DebugSymbols)' ==''">true</DebugSymbols>

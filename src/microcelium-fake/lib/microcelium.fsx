@@ -13,7 +13,10 @@ module Autos =
     | Arg of string * string
     | Switch of string
 
-
+  let bstr (x : bool) : string =
+    match x with
+    | true -> "true"
+    | false -> "false"
 
 [<RequireQualifiedAccess>]
 module Util =
@@ -140,8 +143,8 @@ module Version =
   /// creates a version from either "major.minor" or "major.minor.patch" form
   let from v =
     match BuildServer.buildServer with
-    | TeamCity  -> { prefix = prefix v BuildServer.buildVersion; suffix = ""; raw = v }
-    | _         -> { prefix = prefix (increment v) "0"; suffix = "developer"; raw = v }
+    | LocalBuild -> { prefix = prefix (increment v) "0"; suffix = "developer"; raw = v }
+    | _          -> { prefix = prefix v BuildServer.buildVersion; suffix = ""; raw = v }
 
   /// reads version from the first line of the provided file
   let fromFile file = from <| File.readLine file
@@ -401,7 +404,7 @@ module Build =
         Arg ("Source", snapshotFile)
         Arg ("Output", reportFile)
         Arg ("ReportType", reportType)
-        Arg ("HideAutoProperties", string true)
+        Arg ("HideAutoProperties", bstr true)
       ]
       |> Util.toCommandLine "report" Default
 
@@ -463,22 +466,25 @@ module Selenium =
   open Fake.DotNet
   open Fake.IO.FileSystemOperators
   open Fake.IO.Globbing.Operators
-  open Amazon.S3
-  open Amazon.S3.Transfer
+  //open Amazon.S3
+  //open Amazon.S3.Transfer
 
-  let uploadToS3BucketAsync filePath bucket s3key =
-    Trace.tracefn "Uploading file '%s' to bucket '%s' with key '%s'" filePath bucket s3key
+  let uploadToCloud filePath bucket key =
+    async {
+      // Trace.tracefn "Uploading file '%s' to bucket '%s' with key '%s'" filePath bucket key
 
-    use s3Client = new AmazonS3Client()
-    use fileTransferUtility = new TransferUtility(s3Client)
+      // use s3Client = new AmazonS3Client()
+      // use fileTransferUtility = new TransferUtility(s3Client)
 
-    TransferUtilityUploadRequest(
-      BucketName = bucket,
-      FilePath = filePath,
-      Key = s3key,
-      ServerSideEncryptionMethod = ServerSideEncryptionMethod.AES256)
-      |> fileTransferUtility.UploadAsync
-      |> Async.AwaitTask
+      // TransferUtilityUploadRequest(
+      //   BucketName = bucket,
+      //   FilePath = filePath,
+      //   Key = key,
+      //   ServerSideEncryptionMethod = ServerSideEncryptionMethod.AES256)
+      // |> fileTransferUtility.UploadAsync
+      // |> Async.AwaitTask
+      Async.Ignore
+    }
 
   let run (remoteUrl: unit -> string) binDir (dlls: FileSearch) (filter: string option) =
 
@@ -546,7 +552,7 @@ module Targets =
   /// and also clears the contents of binDir
   let clean rootDir binDir =
     fun(_: TargetParameter) ->
-      if BuildServer.buildServer = TeamCity then
+      if BuildServer.buildServer <> LocalBuild then
         Process.killAllByName ChromeName
         Process.killAllByName ChromeExeName
 
@@ -567,7 +573,7 @@ module Targets =
       Trace.logfn "versionSuffix:     %s" v.suffix
       Trace.logfn "version:           %s" <| Version.toString v
 
-      if Fake.Core.BuildServer.buildServer = TeamCity then
+      if Fake.Core.BuildServer.buildServer <> LocalBuild then
         Trace.setBuildNumber <| Version.toString v
 
   ///creates a Fake Target that builds the solution contained at slnDir
@@ -693,7 +699,7 @@ module Targets =
         )
 
   [<Literal>]
-  let DefaultHeartbeatName = "Can_reach_dashboard"
+  let DefaultHeartbeatName = "Can_land"
 
   [<Literal>]
   let ChromeDriverName = "chromedriver"
@@ -721,7 +727,7 @@ module Targets =
       if clientName.IsSome then
         !! (shotDir @@ "*.png")
           |> Seq.map (fun f -> (f, sprintf "%s/%s/Heartbeat_%s.png" clientName.Value prefix (System.DateTime.Now.ToString "yyyy-MM-dd")))
-          |> Seq.iter (fun (f, key) -> Selenium.uploadToS3BucketAsync f "microcelium-website-screencaps" key |> Async.RunSynchronously)
+          |> Seq.iter (fun (f, key) -> Selenium.uploadToCloud f "microcelium-website-screencaps" key |> Async.RunSynchronously)
 
   let runFull binDir prefix shotDir (dlls: FileSearch) (testFilter: string option) =
     fun (_: TargetParameter) ->
@@ -731,11 +737,11 @@ module Targets =
       if clientName.IsSome then
         !! (shotDir @@ "*.png")
           |> Seq.map (fun f -> (f, sprintf "%s/%s/Heartbeat_%s.png" clientName.Value prefix (System.DateTime.Now.ToString "yyyy-MM-dd")))
-          |> Seq.iter (fun (f, key) -> Selenium.uploadToS3BucketAsync f "microcelium-website-screencaps" key |> Async.RunSynchronously)
+          |> Seq.iter (fun (f, key) -> Selenium.uploadToCloud f "microcelium-website-screencaps" key |> Async.RunSynchronously)
 
   let prepareSelenium binDir shotDir =
     fun (_: TargetParameter) ->
-      if BuildServer.buildServer = TeamCity then
+      if BuildServer.buildServer <> LocalBuild then
         Process.killAllByName ChromeName
         Process.killAllByName ChromeExeName
 

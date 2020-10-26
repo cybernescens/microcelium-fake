@@ -1,7 +1,6 @@
 ﻿#r "paket:
 nuget JetBrains.dotCover.CommandLineTools
-nuget AWSSDK.S3
-nuget Fake.BuildServer.TeamCity
+nuget Fake.BuildServer.TeamFoundation
 nuget Fake.Core.Xml
 nuget Fake.Core.Target
 nuget Fake.Core.Trace
@@ -23,9 +22,9 @@ open Fake.IO.Globbing.Operators
 open Fake.Core.TargetOperators
 open Microcelium.Fake
 
-BuildServer.install [ TeamCity.Installer ]
+BuildServer.install [ TeamFoundation.Installer ]
 
-if BuildServer.buildServer <> TeamCity then
+if BuildServer.buildServer = LocalBuild then
   CoreTracing.ensureConsoleListener ()
 
 (* read EnvVar
