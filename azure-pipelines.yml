@@ -22,9 +22,6 @@ steps:
   displayName: 'NuGet push'
   inputs:
     command: push
-<<<<<<< HEAD
-    packagesToPush: '$(Build.ArtifactStagingDirectory)/**/*.nupkg;!$(Build.ArtifactStagingDirectory)/**/*.symbols.nupkg'
-=======
->>>>>>> bf3a1a0 (attempting to publish to nuget feed)
     publishVstsFeed: 'Libraries/DataDx-DotnetTools'
+    packagesToPush: '$(Build.ArtifactStagingDirectory)/**/*.nupkg;!$(Build.ArtifactStagingDirectory)/**/*.symbols.nupkg'
     allowPackageConflicts: true
