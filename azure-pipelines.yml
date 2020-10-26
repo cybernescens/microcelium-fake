@@ -16,3 +16,11 @@ variables:
 steps:
 - bash: ./build.sh
   displayName: 'Invoke build.sh'
+- task: NuGetAuthenticate@0
+  displayName: 'NuGet Authenticate'
+- task: NuGetCommand@2
+  displayName: 'NuGet push'
+  inputs:
+    command: push
+    publishVstsFeed: 'Libraries/DataDx-DotnetTools'
+    allowPackageConflicts: true
