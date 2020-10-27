@@ -16,8 +16,6 @@ variables:
 - name: Build.PatchNumber
   value: $(Patch.Number)
 
-variables:
-
 steps:
 - bash: ./build.sh
 - task: NuGetAuthenticate@0
