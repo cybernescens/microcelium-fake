@@ -10,8 +10,13 @@ pool:
   vmImage: 'ubuntu-latest'
 
 variables:
+- group: PatchNumberVariableGroup
 - name: Release
   value: 1
+- name: Build.PatchNumber
+  value: $(Patch.Number)
+
+variables:
 
 steps:
 - bash: ./build.sh

@@ -123,6 +123,9 @@ module Environment =
   /// get what is considered the "default" bin directory
   let defaultBinDir = Util.environVarOrDefault ["BUILD_BINARIESDIRECTORY"] "./bin"
 
+  /// gets the caculated version patch number, e.g. 1.0.PATCH_NUMBER
+  let patchNumber = Util.environVarOrDefault ["BUILD_PATCHNUMBER"] "0"
+
 
 [<RequireQualifiedAccess>]
 module Version =
@@ -139,7 +142,6 @@ module Version =
     |> (fun x ->
           match x with
             | [|maj;min;pat|]            -> sprintf "%d.%d.%d" (int maj) (int min) (int pat + 1 )
-            | [|maj;min|] when min = "9" -> sprintf "%d.%d" (int maj + 1) 0
             | [|maj;min|]                -> sprintf "%d.%d" (int maj) (int min + 1)
             | _                          -> failwithf "Cannot understand version: '%s'" v)
 
@@ -147,7 +149,7 @@ module Version =
   let from v =
     match BuildServer.buildServer with
     | LocalBuild -> { prefix = prefix (increment v) "0"; suffix = "developer"; raw = v }
-    | _          -> { prefix = prefix v BuildServer.buildVersion; suffix = ""; raw = v }
+    | _          -> { prefix = prefix v Environment.patchNumber; suffix = ""; raw = v }
 
   /// reads version from the first line of the provided file
   let fromFile file = from <| File.readLine file
@@ -246,6 +248,7 @@ module Build =
                Loggers = Some []
                Properties = msbProperties version
                DisableInternalBinLog = true
+               NoConsoleLogger = true
            }
      }) (slnDir @@ projectName )
 
@@ -273,6 +276,7 @@ module Build =
                 Loggers = Some []
                 Properties = msbProperties version
                 DisableInternalBinLog = true
+                NoConsoleLogger = true
             }
       }) (projectPath)
 
@@ -296,6 +300,7 @@ module Build =
           NodeReuse = false
           NoWarn = msbNowarn
           DisableInternalBinLog = true
+          NoConsoleLogger = true
           BinaryLoggers = Some []
           FileLoggers = Some []
           DistributedLoggers = Some []
@@ -327,6 +332,7 @@ module Build =
                 DistributedLoggers = Some []
                 Loggers = Some []
                 DisableInternalBinLog = true
+                NoConsoleLogger = true
                 NodeReuse = false
                 Verbosity = Some Quiet
             }
@@ -437,6 +443,7 @@ module Build =
                 DistributedLoggers = Some []
                 Loggers = Some []
                 DisableInternalBinLog = true
+                NoConsoleLogger = true
             }
       }) (slnRoot)
 
@@ -457,6 +464,7 @@ module Build =
                 DistributedLoggers = Some []
                 Loggers = Some []
                 DisableInternalBinLog = true
+                NoConsoleLogger = true
             }
       }) (slnRoot)
 
