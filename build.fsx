@@ -24,7 +24,12 @@ let runPublish = (Environment.environVarOrDefault "PUBLISH" "1") = "1"
 let runCleanup = (Environment.environVarOrDefault "CLEANUP" "1") = "1"
 let release = (Environment.environVarOrDefault "RELEASE" "0") = "1"
 
-let versionMajorMinor = "1.0"
+let versionMajor = "1"
+let versionMinor = "0"
+Trace.logfn "##vso[task.setvariable variable=Version.Major]%s" versionMajor
+Trace.logfn "##vso[task.setvariable variable=Version.Minor]%s" versionMinor
+let versionMajorMinor = sprintf "%s.%s" versionMajor versionMinor
+let versionPatch = Environment.environVarOrDefault "BUILD_PATCHNUMBER" "0"
 
 let bstr (x : bool) : string =
   match x with
@@ -49,7 +54,7 @@ let incVer (v : string) =
 
 let (versionPrefix, versionSuffix) =
     match release with
-    | true  -> (makeVer versionMajorMinor "0", "")
+    | true  -> (makeVer versionMajorMinor "0", string versionPatch)
     | false -> (makeVer (incVer versionMajorMinor) "0", "developer")
 
 let version =
@@ -95,6 +100,7 @@ Target.create "Version" (fun _ ->
   Trace.logfn "versionPrefix:     %s" versionPrefix
   Trace.logfn "versionSuffix:     %s" versionSuffix
   Trace.logfn "version:           %s" version
+  Trace.logfn "patch:             %s" <| versionPatch
   Trace.logfn "release:           %s" <| bstr release
   Trace.logfn "buildServer        %s" <| string Fake.Core.BuildServer.buildServer
   Trace.logfn "binDir:            %s" binDir
