@@ -12,11 +12,9 @@ pool:
 variables:
 - name: Release
   value: 1
-- name: Build.PatchNumber
-  value: $(Rev:r)
 
 steps:
-- bash: ./build.sh
+- bash: export BUILD_PATCHNUMBER=$(Rev:r) && ./build.sh
 - task: NuGetAuthenticate@0
 - task: NuGetCommand@2
   inputs:
