@@ -41,7 +41,7 @@ let versionparts = Version.parts version
 let versionstr = Version.toString version
 
 let srcDir = Path.getFullName "./src"
-let binDir = Path.getFullName "./bin"
+let binDir = Environment.defaultBinDir
 
 let project = "{project}"
 let tests = seq { yield (srcDir, Default) }

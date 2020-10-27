@@ -120,6 +120,9 @@ module Environment =
   /// add the teamcity adapter?
   let addTeamCityAdapter = Util.environVarOrDefault ["TeamCityAdapters"] "0" = "1" || BuildServer.buildServer = TeamCity
 
+  /// get what is considered the "default" bin directory
+  let defaultBinDir = Util.environVarOrDefault ["BUILD_BINARIESDIRECTORY"] "./bin"
+
 
 [<RequireQualifiedAccess>]
 module Version =

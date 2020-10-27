@@ -16,7 +16,9 @@ open Fake.IO.Globbing.Operators
 open Fake.Core.TargetOperators
 
 BuildServer.install [ TeamFoundation.Installer ]
-CoreTracing.ensureConsoleListener ()
+
+if BuildServer.buildServer = LocalBuild then
+    CoreTracing.ensureConsoleListener ()
 
 let runPublish = (Environment.environVarOrDefault "PUBLISH" "1") = "1"
 let runCleanup = (Environment.environVarOrDefault "CLEANUP" "1") = "1"
@@ -71,6 +73,7 @@ let package projectName (props: (string * string) list option) =
               NodeReuse = false
               NoWarn = msbNowarn
               Properties = msbPropertiesAppend (versionPrefix, versionSuffix) properties
+              NoConsoleLogger = true
               BinaryLoggers = Some []
               FileLoggers = Some []
               DistributedLoggers = Some []
@@ -113,6 +116,7 @@ Target.create "Build" (fun _ ->
               FileLoggers = Some []
               DistributedLoggers = Some []
               Loggers = Some []
+              NoConsoleLogger = true
               DisableInternalBinLog = true }
     }) (srcDir @@ "microcelium-fake" @@ "microcelium-fake.fsproj")
 )
