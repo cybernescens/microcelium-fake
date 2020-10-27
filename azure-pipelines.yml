@@ -19,7 +19,14 @@ steps:
 - task: NuGetCommand@2
   inputs:
     command: 'push'
+<<<<<<< HEAD
+    packagesToPush: '$(Build.BinariesDir?ectory)/**/*.nupkg'
+    nuGetFeedType: 'internal'
+    publishVstsFeed: '3b7f4a3f-fd2f-404e-8fe0-85ad6b6c950f/41c3678c-0c57-4e19-a2f9-7901be25c9b8'
+    allowPackageConflicts: true
+=======
     packagesToPush: '$(Build.ArtifactStagingDirectory)/**/*.nupkg'
     nuGetFeedType: 'internal'
     publishVstsFeed: '3b7f4a3f-fd2f-404e-8fe0-85ad6b6c950f/41c3678c-0c57-4e19-a2f9-7901be25c9b8'
     allowPackageConflicts: true
+>>>>>>> d0a18ff (Update azure-pipelines.yml for Azure Pipelines)

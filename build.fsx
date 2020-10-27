@@ -56,7 +56,7 @@ let version =
   | _   -> sprintf "%s-%s" versionPrefix versionSuffix
 
 let srcDir = Path.getFullName "./src"
-let binDir = Path.getFullName "./bin"
+let binDir = Environment.environVarOrDefault "BUILD_BINARIESDIRECTORY" <| Path.getFullName "./bin"
 
 let package projectName (props: (string * string) list option) =
   let properties = [("PackageVersion", version);("CompileLib", bstr false)] @ if props.IsSome then props.Value else []
@@ -70,7 +70,12 @@ let package projectName (props: (string * string) list option) =
           { p.MSBuildParams with
               NodeReuse = false
               NoWarn = msbNowarn
-              Properties = msbPropertiesAppend (versionPrefix, versionSuffix) properties }
+              Properties = msbPropertiesAppend (versionPrefix, versionSuffix) properties
+              BinaryLoggers = Some []
+              FileLoggers = Some []
+              DistributedLoggers = Some []
+              Loggers = Some []
+              DisableInternalBinLog = true }
     }) (srcDir @@ projectName)
 
 Target.create "Clean" (fun _ ->
@@ -87,8 +92,9 @@ Target.create "Version" (fun _ ->
   Trace.logfn "versionPrefix:     %s" versionPrefix
   Trace.logfn "versionSuffix:     %s" versionSuffix
   Trace.logfn "version:           %s" version
-  Trace.logfn "env RELEASE:       %s" <| Environment.environVarOrDefault "RELEASE" "0"
+  Trace.logfn "release:           %s" <| bstr release
   Trace.logfn "buildServer        %s" <| string Fake.Core.BuildServer.buildServer
+  Trace.logfn "binDir:            %s" binDir
 
   if Fake.Core.BuildServer.buildServer <> LocalBuild then
     Trace.setBuildNumber version
@@ -102,7 +108,12 @@ Target.create "Build" (fun _ ->
           { p.MSBuildParams with
               NodeReuse = false
               NoWarn = msbNowarn
-              Properties = msbPropertiesAppend (versionPrefix, versionSuffix) [("CompileLib", bstr false)]}
+              Properties = msbPropertiesAppend (versionPrefix, versionSuffix) [("CompileLib", bstr false)]
+              BinaryLoggers = Some []
+              FileLoggers = Some []
+              DistributedLoggers = Some []
+              Loggers = Some []
+              DisableInternalBinLog = true }
     }) (srcDir @@ "microcelium-fake" @@ "microcelium-fake.fsproj")
 )
 
