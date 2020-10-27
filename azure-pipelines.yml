@@ -14,7 +14,7 @@ variables:
 - name: Release
   value: 1
 - name: Build.PatchNumber
-  value: $[variables['Version.Patch']]
+  value: $(Version.Patch)
 
 steps:
 - bash: ./build.sh
