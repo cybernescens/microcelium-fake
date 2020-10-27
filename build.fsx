@@ -4,9 +4,11 @@ nuget Fake.BuildServer.TeamFoundation
 nuget Fake.Core.Target
 nuget Fake.DotNet.Cli
 nuget Fake.IO.FileSystem
+nuget Fake.IO.Zip
 nuget Fake.Runtime
 //"
 #load ".fake/build.fsx/intellisense.fsx"
+#load "src/microcelium-fake/lib/microcelium.fsx"
 open Fake.Core
 open Fake.BuildServer
 open Fake.DotNet
@@ -14,131 +16,52 @@ open Fake.IO
 open Fake.IO.FileSystemOperators
 open Fake.IO.Globbing.Operators
 open Fake.Core.TargetOperators
+open Microcelium.Fake
 
 BuildServer.install [ TeamFoundation.Installer ]
 
 if BuildServer.buildServer = LocalBuild then
-    CoreTracing.ensureConsoleListener ()
+  CoreTracing.ensureConsoleListener ()
 
-let runPublish = (Environment.environVarOrDefault "PUBLISH" "1") = "1"
-let runCleanup = (Environment.environVarOrDefault "CLEANUP" "1") = "1"
-let release = (Environment.environVarOrDefault "RELEASE" "0") = "1"
+(* read EnvVar
+  let myEnvVar = Util.environVarOrDefault ["myEnvVarKey1"; "myEnvVarKey2"] "default value"
+*)
 
-let versionMajor = "1"
-let versionMinor = "0"
-Trace.logfn "##vso[task.setvariable variable=Version.Major]%s" versionMajor
-Trace.logfn "##vso[task.setvariable variable=Version.Minor]%s" versionMinor
-let versionMajorMinor = sprintf "%s.%s" versionMajor versionMinor
-let versionPatch = Environment.environVarOrDefault "BUILD_PATCHNUMBER" "0"
-
-let bstr (x : bool) : string =
-  match x with
-  | true -> "true"
-  | false -> "false"
-
-/// gets a list of properties that is passable to MSBuild, also configuring version properties and appends an existings list
-let inline msbPropertiesAppend version (exist: (string * string) list) =
-  exist @ [("VersionPrefix", fst version); ("VersionSuffix", snd version)] |> List.distinct
-
-///gets a list of properties that is passable to MSBuild, also configuring version properties
-let inline msbProperties version = msbPropertiesAppend version []
-let msbNowarn = Some ["CS1591"; "CS0108"; "CS0618"; "CS0672"; "NU1701"]
-
-let makeVer = sprintf "%s.%s"
-let incVer (v : string) =
-  v.Split '.'
-  |> (fun x ->
-        match x with
-          | [|maj;min|]     -> sprintf "%d.%d" (int maj) (int min + 1)
-          | _               -> failwithf "Cannot understand version: '%s'" v)
-
-let (versionPrefix, versionSuffix) =
-    match release with
-    | true  -> (makeVer versionMajorMinor "0", string versionPatch)
-    | false -> (makeVer (incVer versionMajorMinor) "0", "developer")
-
-let version =
-  match versionSuffix with
-  | ""  -> versionPrefix
-  | _   -> sprintf "%s-%s" versionPrefix versionSuffix
+let version = Version.from "1.0" //parses from param
+let versionparts = Version.parts version
+let versionstr = Version.toString version
 
 let srcDir = Path.getFullName "./src"
-let binDir = Environment.environVarOrDefault "BUILD_BINARIESDIRECTORY" <| Path.getFullName "./bin"
+let binDir = Environment.defaultBinDir
 
-let package projectName (props: (string * string) list option) =
-  let properties = [("PackageVersion", version);("CompileLib", bstr false)] @ if props.IsSome then props.Value else []
-  DotNet.pack(fun p ->
-    { p with
-        Configuration = DotNet.BuildConfiguration.Debug
-        OutputPath = Some binDir
-        NoBuild = true
-        NoRestore = true
-        MSBuildParams =
-          { p.MSBuildParams with
-              NodeReuse = false
-              NoWarn = msbNowarn
-              Properties = msbPropertiesAppend (versionPrefix, versionSuffix) properties
-              NoConsoleLogger = true
-              BinaryLoggers = Some []
-              FileLoggers = Some []
-              DistributedLoggers = Some []
-              Loggers = Some []
-              DisableInternalBinLog = true }
-    }) (srcDir @@ projectName)
+let project = "microcelium-fake"
+let tests = seq { yield (srcDir, Default) }
 
-Target.create "Clean" (fun _ ->
-  if runCleanup then
-    Fake.IO.Directory.ensure binDir
-    !! (srcDir @@ "**/bin")
-    ++ (srcDir @@ "**/obj")
-    ++ binDir
-    |> Shell.cleanDirs
-)
+Target.create "Clean" <| Targets.clean srcDir binDir
+Target.create "Version" <| Targets.version version
+Target.create "Build" <| Targets.buildExt srcDir versionparts [("CompileLib", bstr true)]
+Target.create "Test" <| Targets.test tests project binDir
+Target.create "Publish" <| Targets.publish binDir
 
-Target.create "Version" (fun _ ->
-  Trace.logfn "versionMajorMinor: %s" versionMajorMinor
-  Trace.logfn "versionPrefix:     %s" versionPrefix
-  Trace.logfn "versionSuffix:     %s" versionSuffix
-  Trace.logfn "version:           %s" version
-  Trace.logfn "patch:             %s" <| versionPatch
-  Trace.logfn "release:           %s" <| bstr release
-  Trace.logfn "buildServer        %s" <| string Fake.Core.BuildServer.buildServer
-  Trace.logfn "binDir:            %s" binDir
-
-  if Fake.Core.BuildServer.buildServer <> LocalBuild then
-    Trace.setBuildNumber version
-)
-
-Target.create "Build" (fun _ ->
-  DotNet.build (fun p ->
-    { p with
-        Configuration = DotNet.BuildConfiguration.Debug
-        MSBuildParams =
-          { p.MSBuildParams with
-              NodeReuse = false
-              NoWarn = msbNowarn
-              Properties = msbPropertiesAppend (versionPrefix, versionSuffix) [("CompileLib", bstr false)]
-              BinaryLoggers = Some []
-              FileLoggers = Some []
-              DistributedLoggers = Some []
-              Loggers = Some []
-              NoConsoleLogger = true
-              DisableInternalBinLog = true }
-    }) (srcDir @@ "microcelium-fake" @@ "microcelium-fake.fsproj")
-)
-
+(* about the only part that needs customized *)
 Target.create "Package" (fun _ ->
-  package "microcelium-fake" <| Some [("NoDefaultExcludes", bstr true)]
+  let props = [("CompileLib", bstr false); ("NoDefaultExcludes", bstr true)]
+  Build.packageNugetExt srcDir "microcelium-fake" versionparts binDir props |> ignore
 )
 
-Target.create "Publish" (fun _ ->
-  Trace.publish ImportData.BuildArtifact binDir
-)
+Target.create "ToLocalNuget"  <| Targets.publishLocal binDir versionstr
+
+(* `NuGetCachePath` EnvVar should be set to your Nuget Packages Install dir already, but
+    `TargetVersion` should be set prior to running build.bat :
+    set TargetVersion=1.14 *)
+
+Target.create "ToLocalPackageRepo" <| Targets.packageLocal srcDir
 
 "Clean"
   ==> "Version"
   ==> "Build"
+  ==> "Test"
   ==> "Package"
-  =?> ("Publish", runPublish)
+  =?> ("Publish", Environment.runPublish)
 
-Target.runOrDefaultWithArguments <| if runPublish then "Publish" else "Build"
+Target.runOrDefault <| if Environment.runPublish then "Publish" else "Test"

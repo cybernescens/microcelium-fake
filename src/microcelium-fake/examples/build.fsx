@@ -48,7 +48,7 @@ let tests = seq { yield (srcDir, Default) }
 
 Target.create "Clean" <| Targets.clean srcDir binDir
 Target.create "Version" <| Targets.version version
-Target.create "Build" <| Targets.build srcDir versionparts None
+Target.create "Build" <| Targets.build srcDir versionparts
 Target.create "Test" <| Targets.test tests project binDir
 Target.create "Publish" <| Targets.publish binDir
 
@@ -91,10 +91,11 @@ Target.create "PrepareSelenium" <| Targets.prepareSelenium selenDir shotsDir
 Target.create "DeploySelenium" <| Targets.deploySelenium selenDir selenZip
 Target.create "RunHeartbeat" <| Targets.runHeartbeat selenDir project shotsDir DefaultFiles Default
 Target.create "RunSelenium" <| Targets.runFull selenDir prefix shotsDir DefaultFiles Default
+Target.create "PublishSelenium" <| Targets.publishSelenium shotsDir
 
 "PrepareSelenium" ==> "DeploySelenium"
-"DeploySelenium"  ==> "RunHeartbeat"
-"DeploySelenium"  ==> "RunSelenium"
+"DeploySelenium"  ==> "RunHeartbeat" =?> ("PublishSelenium", Environment.runPublish)
+"DeploySelenium"  ==> "RunSelenium" =?> ("PublishSelenium", Environment.runPublish)
 
 //*)
 

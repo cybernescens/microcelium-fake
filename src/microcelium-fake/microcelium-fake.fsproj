@@ -29,7 +29,7 @@
   </Target>
 
   <ItemGroup>
-    <Content Include="lib\*.*" Condition="'$(CompileLib)' == 'false'">
+    <Content Include="lib\*.*" Condition="'$(CompileLib)' != 'true'">
       <Pack>true</Pack>
       <PackagePath>content\lib</PackagePath>
     </Content>
@@ -37,11 +37,11 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="examples\*.*">
+    <Content Include="examples\*.*" Condition="'$(CompileLib)' != 'true'">
       <Pack>true</Pack>
       <PackagePath>content\examples</PackagePath>
     </Content>
-    <Compile Include="examples\*.fsx" Condition="'$(CompileLib)' == 'true'" />
+    <None Include="examples\*.fsx" Condition="'$(CompileLib)' == 'true'" />
   </ItemGroup>
 
   <ItemGroup>

@@ -225,13 +225,13 @@ module Build =
     Trace.logfn "Zip Source: `%s`" sourceDir
     Trace.logfn "Zip name: `%s`" zipName
     !! (sourceDir @@ "**/*.*")
-    |> Fake.IO.Zip.createZip sourceDir (publishDir @@ zipName) "" 0 false
+    |> Zip.createZip sourceDir (publishDir @@ zipName) "" 0 false
 
     Shell.deleteDir sourceDir
     zipName
 
   ///calls dotnet pack to create a NuGet package
-  let packageNuget slnDir projectName version binDir =
+  let packageNugetExt slnDir projectName version binDir (props: (string * string) list) =
     Trace.logfn "Packaging project for NuGet (dotnet pack): %s" projectName
     DotNet.pack(fun p ->
      { p with
@@ -246,14 +246,17 @@ module Build =
                FileLoggers = Some []
                DistributedLoggers = Some []
                Loggers = Some []
-               Properties = msbProperties version
+               Properties = msbPropertiesAppend version props
                DisableInternalBinLog = true
-               NoConsoleLogger = true
+               NoConsoleLogger = not <| BuildServer.isLocalBuild
            }
      }) (slnDir @@ projectName )
 
+  let packageNuget slnDir projectName version binDir =
+      packageNugetExt slnDir projectName version binDir []
+
   /// calls dotnet publish to publish the project to the local file system
-  let packageProject slnDir projectName version binDir =
+  let packageProjectExt slnDir projectName version binDir (props: (string * string) list) =
     Trace.logfn "Packaging project for publish (dotnet publish): %s" projectName
     let projectPath = slnDir @@ projectName
     let publishDir = binDir @@ projectName
@@ -274,23 +277,33 @@ module Build =
                 FileLoggers = Some []
                 DistributedLoggers = Some []
                 Loggers = Some []
-                Properties = msbProperties version
+                Properties = msbPropertiesAppend version props
                 DisableInternalBinLog = true
-                NoConsoleLogger = true
+                NoConsoleLogger = not <| BuildServer.isLocalBuild
             }
       }) (projectPath)
 
     let zipname = packageDeployable binDir projectName version
     zipname
 
+  let packageProject slnDir projectName version binDir =
+      packageProjectExt slnDir projectName version binDir []
+
   /// this is used for legacy .NET Framework web projects and essentially publishes them to the local file system
   /// because dotnet publish is not available to these projects
-  let packageWeb slnDir projectName version binDir =
+  let packageWebExt slnDir projectName version binDir (props: (string * string) list) =
     let projectPath = slnDir @@ projectName
     let publishDir = binDir @@ projectName
 
     Directory.ensure publishDir
     Shell.cleanDir publishDir
+
+    let msprops =
+        [("WebPublishMethod", "FileSystem")
+         ("PublishUrl", publishDir)
+         ("ExcludeGeneratedDebugSymbol", "false")]
+         @ props
+         |> List.distinct
 
     MSBuild.build (fun p ->
       { p with
@@ -300,18 +313,19 @@ module Build =
           NodeReuse = false
           NoWarn = msbNowarn
           DisableInternalBinLog = true
-          NoConsoleLogger = true
+          NoConsoleLogger = not <| BuildServer.isLocalBuild
           BinaryLoggers = Some []
           FileLoggers = Some []
           DistributedLoggers = Some []
           Loggers = Some []
-          Properties = msbPropertiesAppend version ["WebPublishMethod", "FileSystem"
-                                                    "PublishUrl", publishDir
-                                                    "ExcludeGeneratedDebugSymbol", "false"]
+          Properties = msbPropertiesAppend version msprops
        }) (projectPath @@ projectName + ".csproj")
 
     let zipname = packageDeployable binDir projectName version
     zipname
+
+  let packageWeb slnDir projectName version binDir =
+      packageWebExt slnDir projectName version binDir []
 
   ///runs NUnit with no Code Coverage, filter is optional and so will
   ///default to "(TestCategory!=integration)&(TestCategory!=Integration)" when none is provided
@@ -332,7 +346,7 @@ module Build =
                 DistributedLoggers = Some []
                 Loggers = Some []
                 DisableInternalBinLog = true
-                NoConsoleLogger = true
+                NoConsoleLogger = not <| BuildServer.isLocalBuild
                 NodeReuse = false
                 Verbosity = Some Quiet
             }
@@ -427,7 +441,8 @@ module Build =
     let (_, value) = Xml.read_Int false xmlPath "" "" xp
     value
 
-  let buildCode slnRoot version (testGlob: FileSearch) =
+
+  let buildCodeExt slnRoot version (props: (string * string) list) =
     ensureUnitAdapters slnRoot
     ensureSeleniumAdapters slnRoot
     DotNet.build (fun p ->
@@ -437,37 +452,18 @@ module Build =
             { p.MSBuildParams with
                 NodeReuse = false
                 NoWarn = msbNowarn
-                Properties = msbProperties version
+                Properties = msbPropertiesAppend version props
                 BinaryLoggers = Some []
                 FileLoggers = Some []
                 DistributedLoggers = Some []
                 Loggers = Some []
                 DisableInternalBinLog = true
-                NoConsoleLogger = true
+                NoConsoleLogger = not <| BuildServer.isLocalBuild
             }
       }) (slnRoot)
 
-
-  let buildCodeProperties slnRoot version (testGlob: FileSearch) (msb: (string * string) list) =
-    ensureUnitAdapters slnRoot
-    ensureSeleniumAdapters slnRoot
-    DotNet.build (fun p ->
-      { p with
-          Configuration = DotNet.BuildConfiguration.Debug
-          MSBuildParams =
-            { p.MSBuildParams with
-                NodeReuse = false
-                NoWarn = msbNowarn
-                Properties = msbPropertiesAppend version msb
-                BinaryLoggers = Some []
-                FileLoggers = Some []
-                DistributedLoggers = Some []
-                Loggers = Some []
-                DisableInternalBinLog = true
-                NoConsoleLogger = true
-            }
-      }) (slnRoot)
-
+  let buildCode slnRoot version  =
+    buildCodeExt slnRoot version []
 
 
 [<RequireQualifiedAccess>]
@@ -477,27 +473,8 @@ module Selenium =
   open Fake.DotNet
   open Fake.IO.FileSystemOperators
   open Fake.IO.Globbing.Operators
-  //open Amazon.S3
-  //open Amazon.S3.Transfer
 
-  let uploadToCloud filePath bucket key =
-    async {
-      // Trace.tracefn "Uploading file '%s' to bucket '%s' with key '%s'" filePath bucket key
-
-      // use s3Client = new AmazonS3Client()
-      // use fileTransferUtility = new TransferUtility(s3Client)
-
-      // TransferUtilityUploadRequest(
-      //   BucketName = bucket,
-      //   FilePath = filePath,
-      //   Key = key,
-      //   ServerSideEncryptionMethod = ServerSideEncryptionMethod.AES256)
-      // |> fileTransferUtility.UploadAsync
-      // |> Async.AwaitTask
-      Async.Ignore
-    }
-
-  let run (remoteUrl: unit -> string) binDir (dlls: FileSearch) (filter: string option) =
+  let run (remoteUrl: unit -> string) binDir shotsDir (dlls: FileSearch) (filter: string option) =
 
     let filter' =
       match filter with
@@ -512,6 +489,7 @@ module Selenium =
 
     Fake.Core.Environment.setEnvironVar "selenium.baseUrl" <| remoteUrl ()
     Fake.Core.Environment.setEnvironVar "webdriver.browser.runheadless" <| string Environment.runHeadless
+    Fake.Core.Environment.setEnvironVar "selenium.screenshot.directory" shotsDir
 
     let logger = if Environment.addTeamCityAdapter then "teamcity" else "console"
     let exe = DotNet.Options.Create().DotNetCliPath
@@ -588,13 +566,13 @@ module Targets =
         Trace.setBuildNumber <| Version.toString v
 
   ///creates a Fake Target that builds the solution contained at slnDir
-  let build slnDir version testGlob =
+  let build slnDir version =
     fun (_: TargetParameter) ->
-      Build.buildCode slnDir version testGlob
+      Build.buildCodeExt slnDir version []
 
-  let buildCodeProperties slnDir version testGlob msb =
+  let buildExt slnDir version (props: (string * string) list) =
     fun (_: TargetParameter) ->
-      Build.buildCodeProperties slnDir version testGlob msb
+      Build.buildCodeExt slnDir version props
 
   /// creates a Fake Target that takes a sequence of solutionFile * optional filter to run
   /// unit tests for and ultimately merging the results into one coverage result when
@@ -612,9 +590,9 @@ module Targets =
                     Build.runDotCoverReport outDir file project "XML"
                       |> Build.extractCoverage Default
                       |> sprintf "Coverage: %i%%"
-                      |> Trace.tracefn "##teamcity[buildStatus text='{build.status.text}, %s']"
+                      |> Trace.tracefn "##vso[buildStatus text='{build.status.text}, %s']"
 
-                    Trace.tracefn "##teamcity[importData type='dotNetCoverage' tool='dotcover' path='%s']" file
+                    Trace.tracefn "##vso[importData type='dotNetCoverage' tool='dotcover' path='%s']" file
                 | None -> ()
       | false ->
         slnFiles |> Seq.iter (fun (file, filter) -> Build.runTestsNoCoverage file project outDir filter |> ignore )
@@ -724,31 +702,18 @@ module Targets =
       with
         | NoEnvVarError(x) -> failwith <| publishFailNoEnvVar x
 
-  let runHeartbeat binDir prefix shotDir (dlls: FileSearch) (heartbeatTestName: string option) =
+  let runHeartbeat binDir shotDir (dlls: FileSearch) (heartbeatTestName: string option) =
     fun (_: TargetParameter) ->
-      Directory.ensure shotDir
       let heartbeatTestName' =
         match heartbeatTestName with
         | None -> Some DefaultHeartbeatName
         | Some _' -> heartbeatTestName
 
-      Selenium.run remoteUrl binDir dlls heartbeatTestName'
+      Selenium.run remoteUrl binDir shotDir dlls  heartbeatTestName'
 
-      let clientName = Environment.clientName
-      if clientName.IsSome then
-        !! (shotDir @@ "*.png")
-          |> Seq.map (fun f -> (f, sprintf "%s/%s/Heartbeat_%s.png" clientName.Value prefix (System.DateTime.Now.ToString "yyyy-MM-dd")))
-          |> Seq.iter (fun (f, key) -> Selenium.uploadToCloud f "microcelium-website-screencaps" key |> Async.RunSynchronously)
-
-  let runFull binDir prefix shotDir (dlls: FileSearch) (testFilter: string option) =
+  let runFull binDir shotDir (dlls: FileSearch) (testFilter: string option) =
     fun (_: TargetParameter) ->
-      Selenium.run remoteUrl binDir dlls testFilter
-
-      let clientName = Environment.clientName
-      if clientName.IsSome then
-        !! (shotDir @@ "*.png")
-          |> Seq.map (fun f -> (f, sprintf "%s/%s/Heartbeat_%s.png" clientName.Value prefix (System.DateTime.Now.ToString "yyyy-MM-dd")))
-          |> Seq.iter (fun (f, key) -> Selenium.uploadToCloud f "microcelium-website-screencaps" key |> Async.RunSynchronously)
+      Selenium.run remoteUrl binDir shotDir dlls testFilter
 
   let prepareSelenium binDir shotDir =
     fun (_: TargetParameter) ->
@@ -766,3 +731,7 @@ module Targets =
       Directory.ensure target
       Shell.cleanDir target
       Zip.unzip target <| srcDir ()
+
+  let publishSelenium shotDir =
+    fun (_: TargetParameter) ->
+      Trace.publish ImportData.BuildArtifact shotDir
