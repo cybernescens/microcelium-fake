@@ -15,8 +15,8 @@ variables:
 
 steps:
 - task: GetRevision@1
-- bash: export BUILD_PATCHNUMBER=$(Revision) && ./build.sh
 - task: NuGetAuthenticate@0
+- bash: export BUILD_PATCHNUMBER=$(Revision) && ./build.sh
 - task: NuGetCommand@2
   inputs:
     command: 'push'
