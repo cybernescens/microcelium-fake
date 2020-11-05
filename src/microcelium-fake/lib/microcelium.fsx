@@ -248,7 +248,7 @@ module Build =
                Loggers = Some []
                Properties = msbPropertiesAppend version props
                DisableInternalBinLog = true
-               NoConsoleLogger = not <| BuildServer.isLocalBuild
+               NoConsoleLogger = false
            }
      }) (slnDir @@ projectName )
 
@@ -279,7 +279,7 @@ module Build =
                 Loggers = Some []
                 Properties = msbPropertiesAppend version props
                 DisableInternalBinLog = true
-                NoConsoleLogger = not <| BuildServer.isLocalBuild
+                NoConsoleLogger = false
             }
       }) (projectPath)
 
@@ -313,7 +313,7 @@ module Build =
           NodeReuse = false
           NoWarn = msbNowarn
           DisableInternalBinLog = true
-          NoConsoleLogger = not <| BuildServer.isLocalBuild
+          NoConsoleLogger = false
           BinaryLoggers = Some []
           FileLoggers = Some []
           DistributedLoggers = Some []
@@ -346,7 +346,7 @@ module Build =
                 DistributedLoggers = Some []
                 Loggers = Some []
                 DisableInternalBinLog = true
-                NoConsoleLogger = not <| BuildServer.isLocalBuild
+                NoConsoleLogger = false
                 NodeReuse = false
                 Verbosity = Some Quiet
             }
@@ -458,7 +458,7 @@ module Build =
                 DistributedLoggers = Some []
                 Loggers = Some []
                 DisableInternalBinLog = true
-                NoConsoleLogger = not <| BuildServer.isLocalBuild
+                NoConsoleLogger = false
             }
       }) (slnRoot)
 
