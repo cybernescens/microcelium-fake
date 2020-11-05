@@ -22,5 +22,4 @@ steps:
     command: 'push'
     packagesToPush: '$(Build.BinariesDirectory)/**/*.nupkg'
     nuGetFeedType: 'internal'
-    publishVstsFeed: '3b7f4a3f-fd2f-404e-8fe0-85ad6b6c950f/41c3678c-0c57-4e19-a2f9-7901be25c9b8'
-    allowPackageConflicts: true
+    publishVstsFeed: 'a3336200-6a09-4f84-bc50-005bbda90364/a3b10c97-911e-4567-8b1e-4bb97c7701b4'
