@@ -151,7 +151,7 @@ module Version =
   let from v =
     match BuildServer.buildServer with
     | LocalBuild -> { prefix = prefix (increment v) "0"; suffix = "developer"; raw = v }
-    | _          -> { prefix = prefix v BuildServer.buildVersion; suffix = ""; raw = v }
+    | _          -> { prefix = v; suffix = ""; raw = v }
 
   /// reads version from the first line of the provided file
   let fromFile file = from <| File.readLine file
