@@ -123,9 +123,11 @@ module Environment =
   /// get what is considered the "default" bin directory
   let defaultBinDir = Util.environVarOrDefault ["BUILD_BINARIESDIRECTORY"] "./bin"
 
-  /// gets the caculated version patch number, e.g. 1.0.PATCH_NUMBER
+  /// gets the calculated version patch number, e.g. 1.0.PATCH_NUMBER
   let patchNumber = Util.environVarOrDefault ["BUILD_PATCHNUMBER"] "0"
 
+  /// gets any passed in VersionPrefix value or uses "1.0"
+  let version = Util.environVarOrDefault ["Version"] "1.0"
 
 [<RequireQualifiedAccess>]
 module Version =
@@ -149,18 +151,22 @@ module Version =
   let from v =
     match BuildServer.buildServer with
     | LocalBuild -> { prefix = prefix (increment v) "0"; suffix = "developer"; raw = v }
-    | _          -> { prefix = prefix v Environment.patchNumber; suffix = ""; raw = v }
+    | _          -> { prefix = prefix v BuildServer.buildVersion; suffix = ""; raw = v }
 
   /// reads version from the first line of the provided file
   let fromFile file = from <| File.readLine file
 
   /// creates a version from a file in the root of the repository named "Version.ini"
+  /// creates a version from a file in the root of the repository named "Version.ini"
   let fromVersionIni = fun () -> fromFile "Version.ini"
 
+  /// creates a version from variables from parent process
+  let fromEnvironment = fun () -> from Environment.version
+  
   /// returns a tuple form of the version prefix and suffix
   let inline parts (version:Entry) =
     version.prefix, version.suffix
-
+  
   /// returns a string of the full version
   let inline toString (version:Entry) =
     match version.suffix with
@@ -561,6 +567,7 @@ module Targets =
       Trace.logfn "versionPrefix:     %s" v.prefix
       Trace.logfn "versionSuffix:     %s" v.suffix
       Trace.logfn "version:           %s" <| Version.toString v
+      Trace.logfn "buildServer:       %A" <| Fake.Core.BuildServer.buildServer
 
       if Fake.Core.BuildServer.buildServer <> LocalBuild then
         Trace.setBuildNumber <| Version.toString v

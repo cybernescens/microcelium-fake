@@ -11,10 +11,7 @@ nuget Fake.Runtime
 #load "src/microcelium-fake/lib/microcelium.fsx"
 open Fake.Core
 open Fake.BuildServer
-open Fake.DotNet
 open Fake.IO
-open Fake.IO.FileSystemOperators
-open Fake.IO.Globbing.Operators
 open Fake.Core.TargetOperators
 open Microcelium.Fake
 
@@ -27,7 +24,7 @@ if BuildServer.buildServer = LocalBuild then
   let myEnvVar = Util.environVarOrDefault ["myEnvVarKey1"; "myEnvVarKey2"] "default value"
 *)
 
-let version = Version.from "1.0" //parses from param
+let version = Version.fromEnvironment () //gets it from the environment
 let versionparts = Version.parts version
 let versionstr = Version.toString version
 

@@ -7,16 +7,16 @@ trigger:
 - master
 
 pool:
-  vmImage: 'ubuntu-latest'
+  vmImage: 'windows-latest'
 
 variables:
-- name: Release
-  value: 1
+  Release: 1
+  VersionPrefix: 1.1.0
+  VersionSuffix: $[counter(variables['VersionPrefix'], 0)]
 
 steps:
-- task: GetRevision@1
 - task: NuGetAuthenticate@0
-- bash: export BUILD_PATCHNUMBER=$(Revision) && ./build.sh
+- bash: export Version="$(VersionPrefix).$(VersionSuffix)" && ./build.sh
 - task: NuGetCommand@2
   inputs:
     command: 'push'
