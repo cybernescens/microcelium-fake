@@ -36,14 +36,18 @@ let tests = seq { yield (srcDir, Default) }
 
 Target.create "Clean" <| Targets.clean srcDir binDir
 Target.create "Version" <| Targets.version version
-Target.create "Build" <| Targets.buildExt srcDir versionparts [("CompileLib", bstr true)]
+Target.create "Build" <| Targets.buildExt srcDir versionparts [("CompileLib", bstr true)] None
 Target.create "Test" <| Targets.test tests project binDir
 Target.create "Publish" <| Targets.publish binDir
 
 (* about the only part that needs customized *)
 Target.create "Package" (fun _ ->
-  let props = [("CompileLib", bstr false); ("NoDefaultExcludes", bstr true)]
-  Build.packageNugetExt srcDir "microcelium-fake" versionparts binDir props |> ignore
+  let props = [
+    ("CompileLib", bstr false)
+    ("NoDefaultExcludes", bstr true)
+  ]
+
+  Build.packageNugetExt srcDir "microcelium-fake" versionparts binDir props None |> ignore
 )
 
 Target.create "ToLocalNuget"  <| Targets.publishLocal binDir versionstr

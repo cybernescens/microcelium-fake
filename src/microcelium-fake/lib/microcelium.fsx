@@ -599,11 +599,11 @@ module Targets =
   ///creates a Fake Target that builds the solution contained at slnDir
   let build slnDir version =
     fun (_: TargetParameter) ->
-      Build.buildCodeExt slnDir version []
+      Build.buildCodeExt slnDir version [] None
 
-  let buildExt slnDir version (props: (string * string) list) =
+  let buildExt slnDir version (props: (string * string) list) (config: (DotNet.BuildOptions -> DotNet.BuildOptions) option) =
     fun (_: TargetParameter) ->
-      Build.buildCodeExt slnDir version props
+      Build.buildCodeExt slnDir version props config
 
   /// creates a Fake Target that takes a sequence of solutionFile * optional filter to run
   /// unit tests for and ultimately merging the results into one coverage result when
