@@ -237,43 +237,13 @@ module Build =
     zipName
 
   ///calls dotnet pack to create a NuGet package
-  let packageNugetExt slnDir projectName version binDir (props: (string * string) list) =
+  let packageNugetExt slnDir projectName version binDir (props: (string * string) list) (config: (DotNet.PackOptions -> DotNet.PackOptions) option)=
     Trace.logfn "Packaging project for NuGet (dotnet pack): %s" projectName
-    DotNet.pack(fun p ->
-     { p with
-         Configuration = DotNet.BuildConfiguration.Debug
-         OutputPath = Some binDir
-         NoBuild = true
-         MSBuildParams =
-           { p.MSBuildParams with
-               NodeReuse = false
-               NoWarn = msbNowarn
-               BinaryLoggers = Some []
-               FileLoggers = Some []
-               DistributedLoggers = Some []
-               Loggers = Some []
-               Properties = msbPropertiesAppend version props
-               DisableInternalBinLog = true
-               NoConsoleLogger = false
-           }
-     }) (slnDir @@ projectName )
 
-  let packageNuget slnDir projectName version binDir =
-      packageNugetExt slnDir projectName version binDir []
-
-  /// calls dotnet publish to publish the project to the local file system
-  let packageProjectExt slnDir projectName version binDir (props: (string * string) list) =
-    Trace.logfn "Packaging project for publish (dotnet publish): %s" projectName
-    let projectPath = slnDir @@ projectName
-    let publishDir = binDir @@ projectName
-
-    Directory.ensure publishDir
-    Shell.cleanDir publishDir
-
-    DotNet.publish (fun p ->
+    let defaultOpt = fun (p: DotNet.PackOptions) ->
       { p with
           Configuration = DotNet.BuildConfiguration.Debug
-          OutputPath = Some publishDir
+          OutputPath = Some binDir
           NoBuild = true
           MSBuildParams =
             { p.MSBuildParams with
@@ -287,13 +257,59 @@ module Build =
                 DisableInternalBinLog = true
                 NoConsoleLogger = false
             }
-      }) (projectPath)
+      }
+
+    let options = 
+      match config with
+      | Some _ -> defaultOpt >> config.Value
+      | None   -> defaultOpt
+
+    DotNet.pack options (slnDir @@ projectName )
+
+  let packageNuget slnDir projectName version binDir =
+      packageNugetExt slnDir projectName version binDir [] None
+
+  /// calls dotnet publish to publish the project to the local file system
+  let packageProjectExt slnDir projectName version binDir (props: (string * string) list) (config: (DotNet.PublishOptions -> DotNet.PublishOptions) option) =
+    Trace.logfn "Packaging project for publish (dotnet publish): %s" projectName
+    let projectPath = slnDir @@ projectName
+    let publishDir = binDir @@ projectName
+
+    Directory.ensure publishDir
+    Shell.cleanDir publishDir
+
+    let defaultOpt = fun (p: DotNet.PublishOptions) ->
+      { p with
+          Configuration = DotNet.BuildConfiguration.Debug
+          OutputPath = Some publishDir
+          NoBuild = true
+          SelfContained = Some false
+          MSBuildParams =
+            { p.MSBuildParams with
+                NodeReuse = false
+                NoWarn = msbNowarn
+                BinaryLoggers = Some []
+                FileLoggers = Some []
+                DistributedLoggers = Some []
+                Loggers = Some []
+                Properties = msbPropertiesAppend version props
+                DisableInternalBinLog = true
+                NoConsoleLogger = false
+            }
+      }
+
+    let options =
+      match config with
+      | Some _ -> defaultOpt >> config.Value
+      | None   -> defaultOpt
+
+    DotNet.publish options projectPath
 
     let zipname = packageDeployable binDir projectName version
     zipname
 
   let packageProject slnDir projectName version binDir =
-      packageProjectExt slnDir projectName version binDir []
+      packageProjectExt slnDir projectName version binDir [] None
 
   /// this is used for legacy .NET Framework web projects and essentially publishes them to the local file system
   /// because dotnet publish is not available to these projects
@@ -448,10 +464,11 @@ module Build =
     value
 
 
-  let buildCodeExt slnRoot version (props: (string * string) list) =
+  let buildCodeExt slnRoot version (props: (string * string) list) (config: (DotNet.BuildOptions -> DotNet.BuildOptions) option) =
     ensureUnitAdapters slnRoot
     ensureSeleniumAdapters slnRoot
-    DotNet.build (fun p ->
+
+    let defaultOpt = fun (p: DotNet.BuildOptions) ->
       { p with
           Configuration = DotNet.BuildConfiguration.Debug
           MSBuildParams =
@@ -466,10 +483,17 @@ module Build =
                 DisableInternalBinLog = true
                 NoConsoleLogger = false
             }
-      }) (slnRoot)
+      }
+
+    let options =
+      match config with
+      | Some _ -> defaultOpt >> config.Value
+      | None   -> defaultOpt
+
+    DotNet.build options slnRoot
 
   let buildCode slnRoot version  =
-    buildCodeExt slnRoot version []
+    buildCodeExt slnRoot version [] None 
 
 
 [<RequireQualifiedAccess>]
