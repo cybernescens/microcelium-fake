@@ -18,6 +18,9 @@ module Autos =
     | true -> "true"
     | false -> "false"
 
+  let tostr (x: obj) : string = x.ToString()
+  let tolower (x: string) : string = x.ToLower()
+
 [<RequireQualifiedAccess>]
 module Util =
 
@@ -352,11 +355,11 @@ module Build =
   ///runs NUnit with no Code Coverage, filter is optional and so will
   ///default to "(TestCategory!=integration)&(TestCategory!=Integration)" when none is provided
   ///this is essentially the same as `dotnet test`. returns the directory path of the test results
-  let runTestsNoCoverage (slnFile: string) project outDir (filter: string option) =
+  let runTestsNoCoverage (slnFile: string) project outDir (filter: string option) (configuration: DotNet.BuildConfiguration) =
     Trace.tracefn "parameter `project` (%s) intentionally unused" project
     DotNet.test (fun p ->
       { p with
-          Configuration = DotNet.BuildConfiguration.Debug
+          Configuration = configuration
           NoBuild= true
           NoRestore = true
           ResultsDirectory = Some outDir
@@ -379,7 +382,7 @@ module Build =
   /// default to "(TestCategory!=integration)&(TestCategory!=Integration)" when none is provided
   /// this is essentially the same as `dotcover "dotnet test"`, returns the full path
   /// to the output snapshot file
-  let runTestsCoverage (slnFile: string) project outDir (filter:string option) =
+  let runTestsCoverage (slnFile: string) project outDir (filter:string option) (configuration: DotNet.BuildConfiguration) =
     //let logDir = outDir
     let slnName = System.IO.Path.GetFileNameWithoutExtension slnFile
     let snapshotPath = outDir @@ (slnName + ".DotCover.snapshot")
@@ -387,7 +390,7 @@ module Build =
       [
         ["test"]
         [slnFile]
-        ["--configuration"; "debug"]
+        ["--configuration"; (configuration |> tostr |> tolower)]
         ["--no-build"]
         ["--no-restore"]
         ["--filter"; (if filter.IsNone then DefaultFilter else filter.Value)]
@@ -494,7 +497,7 @@ module Build =
 
   let buildCode slnRoot version  =
     buildCodeExt slnRoot version [] None 
-
+  
 
 [<RequireQualifiedAccess>]
 module Selenium =
@@ -601,6 +604,7 @@ module Targets =
     fun (_: TargetParameter) ->
       Build.buildCodeExt slnDir version [] None
 
+  ///creates a Fake Target that builds the solution contained at slnDir
   let buildExt slnDir version (props: (string * string) list) (config: (DotNet.BuildOptions -> DotNet.BuildOptions) option) =
     fun (_: TargetParameter) ->
       Build.buildCodeExt slnDir version props config
@@ -608,11 +612,12 @@ module Targets =
   /// creates a Fake Target that takes a sequence of solutionFile * optional filter to run
   /// unit tests for and ultimately merging the results into one coverage result when
   /// code coverage is enabled
-  let test (slnFiles: seq<string * string option>) project outDir =
+  let testExt (slnFiles: seq<string * string option>) project outDir (configuration: DotNet.BuildConfiguration)=
     fun (_: TargetParameter) ->
       match Environment.runCoverage with
       | true ->
-        slnFiles |> Seq.iter (fun (file, filter) -> Build.runTestsCoverage file project outDir filter |> ignore)
+        slnFiles 
+          |> Seq.iter (fun (file, filter) -> Build.runTestsCoverage file project outDir filter configuration |> ignore)
         Build.runDotCoverMerge outDir project
           |> fun snapshot ->
                 match snapshot with
@@ -626,7 +631,13 @@ module Targets =
                     Trace.tracefn "##vso[importData type='dotNetCoverage' tool='dotcover' path='%s']" file
                 | None -> ()
       | false ->
-        slnFiles |> Seq.iter (fun (file, filter) -> Build.runTestsNoCoverage file project outDir filter |> ignore )
+        slnFiles |> Seq.iter (fun (file, filter) -> Build.runTestsNoCoverage file project outDir filter configuration |> ignore )
+
+  /// creates a Fake Target that takes a sequence of solutionFile * optional filter to run
+  /// unit tests for and ultimately merging the results into one coverage result when
+  /// code coverage is enabled
+  let test (slnFiles: seq<string * string option>) project outDir =
+    testExt slnFiles project outDir DotNet.BuildConfiguration.Debug
 
   /// publishes all contents of binDir
   let publish binDir =
