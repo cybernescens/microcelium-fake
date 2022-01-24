@@ -16,7 +16,7 @@ variables:
 
 steps:
 - checkout: self
-    persistCredentials: true
+  persistCredentials: true
 - task: UseDotNet@2
   inputs:
     useGlobalJson: true
