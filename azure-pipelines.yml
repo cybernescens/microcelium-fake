@@ -16,10 +16,10 @@ variables:
 
 steps:
 - checkout: self
-      persistCredentials: true
+    persistCredentials: true
 - task: UseDotNet@2
-      inputs:
-        useGlobalJson: true
+  inputs:
+    useGlobalJson: true
 - task: NuGetAuthenticate@0
 - bash: export Version="$(VersionPrefix).$(VersionSuffix)" && ./build.sh
 - task: NuGetCommand@2
@@ -29,4 +29,4 @@ steps:
     nuGetFeedType: 'internal'
     publishVstsFeed: 'a3336200-6a09-4f84-bc50-005bbda90364/a3b10c97-911e-4567-8b1e-4bb97c7701b4'
 - bash: git tag $(Build.BuildNumber) && git push origin $(Build.BuildNumber)
-      workingDirectory: $(Build.SourcesDirectory)
+    workingDirectory: $(Build.SourcesDirectory)
