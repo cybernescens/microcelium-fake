@@ -11,10 +11,15 @@ pool:
 
 variables:
   Release: 1
-  VersionPrefix: 1.1.0
+  VersionPrefix: 1.2.0
   VersionSuffix: $[counter(variables['VersionPrefix'], 0)]
 
 steps:
+- checkout: self
+      persistCredentials: true
+- task: UseDotNet@2
+      inputs:
+        useGlobalJson: true
 - task: NuGetAuthenticate@0
 - bash: export Version="$(VersionPrefix).$(VersionSuffix)" && ./build.sh
 - task: NuGetCommand@2
@@ -23,3 +28,5 @@ steps:
     packagesToPush: '$(Build.BinariesDirectory)/**/*.nupkg'
     nuGetFeedType: 'internal'
     publishVstsFeed: 'a3336200-6a09-4f84-bc50-005bbda90364/a3b10c97-911e-4567-8b1e-4bb97c7701b4'
+- bash: git tag $(Build.BuildNumber) && git push origin $(Build.BuildNumber)
+      workingDirectory: $(Build.SourcesDirectory)
