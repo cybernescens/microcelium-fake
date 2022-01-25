@@ -7,7 +7,7 @@ trigger:
 - master
 
 pool:
-  vmImage: 'windows-latest'
+  vmImage: 'windows-2022'
 
 variables:
   Release: 1
@@ -17,9 +17,6 @@ variables:
 steps:
 - checkout: self
   persistCredentials: true
-- task: UseDotNet@2
-  inputs:
-    version: 6.x
 - task: NuGetAuthenticate@0
 - bash: export Version="$(VersionPrefix).$(VersionSuffix)" && ./build.sh
 - task: NuGetCommand@2
