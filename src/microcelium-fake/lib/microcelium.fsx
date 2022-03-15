@@ -26,6 +26,9 @@ module Util =
 
   open Fake.Core
 
+  let agg (keys: string list) =
+    keys |> List.reduce (sprintf "%s, %s")
+
   let rec last = function
     | [hd] -> hd
     | _ :: tl -> last tl
@@ -41,7 +44,7 @@ module Util =
 
   let environVar (keys : string list) =
     match (environVarOrNone keys) with
-    | None   -> failwith "no Environmental variable values found"
+    | None   -> failwithf "no Environmental variable values found for %s" <| agg keys
     | Some x -> x
 
   let environVarOrDefault (keys : string list) (dflt : string) =
@@ -132,6 +135,8 @@ module Environment =
   /// gets any passed in VersionPrefix value or uses "1.0"
   let version = Util.environVarOrDefault ["Version"] "1.0"
 
+  let doNotIncrement = (Util.environVarOrDefault ["DO_NOT_INCREMENT"; "doNotIncrement"] "0") = "1"
+
 [<RequireQualifiedAccess>]
 module Version =
 
@@ -152,9 +157,9 @@ module Version =
 
   /// creates a version from either "major.minor" or "major.minor.patch" form
   let from v =
-    match BuildServer.buildServer with
-    | LocalBuild -> { prefix = prefix (increment v) "0"; suffix = "developer"; raw = v }
-    | _          -> { prefix = v; suffix = ""; raw = v }
+    match (BuildServer.buildServer, Environment.doNotIncrement) with
+    | (LocalBuild, false) -> { prefix = prefix (increment v) "0"; suffix = "developer"; raw = v }
+    | _                   -> { prefix = v; suffix = ""; raw = v }
 
   /// reads version from the first line of the provided file
   let fromFile file = from <| File.readLine file
