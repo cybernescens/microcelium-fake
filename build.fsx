@@ -37,7 +37,7 @@ let tests = seq { yield (srcDir, Default) }
 Target.create "Clean" <| Targets.clean srcDir binDir
 Target.create "Version" <| Targets.version version
 Target.create "Build" <| Targets.buildExt srcDir versionparts [("CompileLib", bstr true)] None
-Target.create "Test" <| Targets.test tests project binDir
+Target.create "Test" <| ignore //Targets.test tests project binDir
 Target.create "Publish" <| Targets.publish binDir
 
 (* about the only part that needs customized *)

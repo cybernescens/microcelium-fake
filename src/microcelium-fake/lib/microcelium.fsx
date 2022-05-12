@@ -8,7 +8,7 @@ module Autos =
   let Default = Option<string>.None
   let DefaultFiles = FileSearch.None
   let DefaultProperties = List.empty<string * string>
-
+  
   type CommandArg =
     | Arg of string * string
     | Switch of string
@@ -79,7 +79,6 @@ module Util =
 module Environment =
 
   open Fake.Core
-  open Fake.IO.FileSystemOperators
 
   [<Literal>]
   let DefaultSeleniumFilter = "(TestCategory=selenium)|(TestCategory=Selenium)"
@@ -95,15 +94,6 @@ module Environment =
 
   /// should artifacts ne cleaned
   let runCleanup = (Util.environVarOrDefault ["CLEANUP"] "1") = "1"
-
-  /// do we have a path for DOTCOVER (.NET Code Coverage tool)
-  let dotcover = Util.environVarOrNone ["DOTCOVER"]
-
-  /// the file path to the DotCover executable
-  let dotCoverPath = if dotcover.IsSome then dotcover.Value @@ "dotCover.exe" else ""
-
-  /// returns true if we're to run Code Coverage during testing
-  let runCoverage = dotcover.IsSome
 
   /// the path to a local microcelium development/scratch repo
   let microceliumDevNugetPackages = Util.environVarOrNone ["MicroceliumNugetPackages"; "NUGET_PACKAGES_MICROCELIUM"]
@@ -124,10 +114,22 @@ module Environment =
   let seleniumFilter = Util.environVarOrDefault ["testcasefilter"] DefaultSeleniumFilter
 
   /// add the teamcity adapter?
-  let addTeamCityAdapter = Util.environVarOrDefault ["TeamCityAdapters"] "0" = "1" || BuildServer.buildServer = TeamCity
+  let ensureCoverlet = Util.environVarOrDefault ["EnsureCoverlet"] "0" = "1" || BuildServer.buildServer = TeamFoundation
 
   /// get what is considered the "default" bin directory
   let defaultBinDir = Util.environVarOrDefault ["BUILD_BINARIESDIRECTORY"] "./bin"
+
+  /// get what is considered the "default" test results directory
+  let defaultTestResultsDir = Util.environVarOrDefault ["COMMON_TESTRESULTSDIRECTORY"] "./test-results"
+
+  /// the include pattern for coverlet
+  let defaultCoverletInclude = Util.environVarOrDefault ["CoverletInclude"] "[DataDx.*]*,[Microcelium.*]*"
+
+  /// the exclude pattern for coverlet
+  let defaultCoverletExclude = Util.environVarOrDefault ["CoverletExclude"] "[*.Tests]*,[*.SeleniumTests]*,[Microcelium.Testing*]*,[DataDx.Testing*]*"
+
+  /// publish test results when running tests. default is 0
+  let publishTestResults = Util.environVarOrDefault ["PublishTestResults"] "0" = "1"
 
   /// gets the calculated version patch number, e.g. 1.0.PATCH_NUMBER
   let patchNumber = Util.environVarOrDefault ["BUILD_PATCHNUMBER"] "0"
@@ -135,7 +137,8 @@ module Environment =
   /// gets any passed in VersionPrefix value or uses "1.0"
   let version = Util.environVarOrDefault ["Version"] "1.0"
 
-  let doNotIncrement = (Util.environVarOrDefault ["DO_NOT_INCREMENT"; "doNotIncrement"] "0") = "1"
+  /// do not increment version during build
+  let doNotIncrement = (Util.environVarOrDefault ["DO_NOT_INCREMENT"; "doNotIncrement"; "DoNotIncrement"] "0") = "1"
 
 [<RequireQualifiedAccess>]
 module Version =
@@ -197,11 +200,6 @@ module Build =
   open Fake.IO.FileSystemOperators
   open Fake.IO.Globbing.Operators
 
-  (* Constants *)
-
-  [<Literal>]
-  let DefaultFilter = "(TestCategory!=integration)&(TestCategory!=Integration)"
-
   (* Building *)
 
   /// default list of MSBuild Codes we do not want to receive warnings for
@@ -214,23 +212,34 @@ module Build =
   ///gets a list of properties that is passable to MSBuild, also configuring version properties
   let inline msbProperties version = msbPropertiesAppend version DefaultProperties
 
-  let ensureAdapters srcDir (testGlob: FileSearch) =
-    if Environment.addTeamCityAdapter then
-      let testGlob' =
-        match testGlob with
-        | None -> !! (srcDir @@ "**/*.Tests.csproj")
-        | Some x -> x
+  let buildCodeExt slnRoot version (props: (string * string) list) (config: (DotNet.BuildOptions -> DotNet.BuildOptions) option) =
+    let defaultOpt = fun (p: DotNet.BuildOptions) ->
+      { p with
+          Configuration = DotNet.BuildConfiguration.Debug
+          MSBuildParams =
+            { p.MSBuildParams with
+                NodeReuse = false
+                NoWarn = msbNowarn
+                Properties = msbPropertiesAppend version props
+                BinaryLoggers = Some []
+                FileLoggers = Some []
+                DistributedLoggers = Some []
+                Loggers = Some []
+                DisableInternalBinLog = true
+                NoConsoleLogger = false
+            }
+      }
 
-      testGlob'
-        |> Seq.map (Path.getDirectory >> sprintf "%s package TeamCity.VSTest.TestAdapter")
-        |> Seq.iter (ignore << DotNet.exec (fun _ -> DotNet.Options.Create()) "add")
+    let options =
+      match config with
+      | Some _ -> defaultOpt >> config.Value
+      | None   -> defaultOpt
 
-  let ensureSeleniumAdapters srcDir =
-    Some !!(srcDir @@ "**/Microcelium.*Selenium*.csproj") |> ensureAdapters srcDir
+    DotNet.build options slnRoot
 
-  let ensureUnitAdapters srcDir =
-    Some <| !!(srcDir @@ "**/*.Tests.csproj") --(srcDir @@ "Microcelium.*Selenium*.csproj") |> ensureAdapters srcDir
-
+  let buildCode slnRoot version  =
+    buildCodeExt slnRoot version [] None 
+  
   ///takes the contents of a directory and zips them up with a version moniker
   ///when cleanup is true will delete the contents of sourceDir
   let packageDeployable publishDir projectName version =
@@ -357,152 +366,174 @@ module Build =
   let packageWeb slnDir projectName version binDir =
       packageWebExt slnDir projectName version binDir []
 
-  ///runs NUnit with no Code Coverage, filter is optional and so will
-  ///default to "(TestCategory!=integration)&(TestCategory!=Integration)" when none is provided
-  ///this is essentially the same as `dotnet test`. returns the directory path of the test results
-  let runTestsNoCoverage (slnFile: string) project outDir (filter: string option) (configuration: DotNet.BuildConfiguration) =
-    Trace.tracefn "parameter `project` (%s) intentionally unused" project
-    DotNet.test (fun p ->
-      { p with
-          Configuration = configuration
-          NoBuild= true
-          NoRestore = true
-          ResultsDirectory = Some outDir
-          Filter = if filter.IsNone then Some DefaultFilter else filter
-          MSBuildParams =
-            { p.MSBuildParams with
-                BinaryLoggers = Some []
-                FileLoggers = Some []
-                DistributedLoggers = Some []
-                Loggers = Some []
-                DisableInternalBinLog = true
-                NoConsoleLogger = false
-                NodeReuse = false
-                Verbosity = Some Quiet
-            }
-      }) (slnFile)
-    outDir
+
+
+[<RequireQualifiedAccess>]
+module Testing =
+
+  open Fake.Core
+  open Fake.DotNet
+  open Fake.IO
+  open Fake.IO.FileSystemOperators
+  open Fake.IO.Globbing.Operators
+  
+  [<Literal>]
+  let DefaultUnitTestFilter = "(TestCategory!=integration)&(TestCategory!=Integration)"
+  let UnitTestProjects srcDir = GlobbingPattern.createFrom srcDir ++ "**/*.Tests.csproj"
+
+  [<Literal>]
+  let DefaultSeleniumTestFilter = "(TestCategory==selenium)"
+  let SeleniumTestProjects srcDir = GlobbingPattern.createFrom srcDir ++ "**/*.SeleniumTests.csproj"
+  
+  let dotNetOpt (opt: DotNet.Options) = opt
+  let dotNetExec cmd = DotNet.exec dotNetOpt cmd
+
+  let addCoverlet project = 
+    project |> sprintf "%s package coverlet.msbuild" |> dotNetExec "add"
+
+  let ensureCoverlet (projects : string seq) = projects |> Seq.map addCoverlet |> ignore
+
+  //let generateTestReport = 
+  //  let resultsDir = Path.getFullName Environment.defaultTestResultsDir |> Path.normalizeFileName
+
+  //  let reports = sprintf "\"-reports:%s\\*.cobertura.xml\"" resultsDir
+  //  let args =  new ExecParams(Program = "", CommandLine = "", Args = []) 
+
+  //  Process.shellExec { Program = "" }
+
+  let runTests (coverage: bool) (filter: string) (options: DotNet.TestOptions -> DotNet.TestOptions) (projects: IGlobbingPattern) =
+    
+    //ensureCoverlet projects
+    let includePattern = Environment.defaultCoverletInclude
+    let excludePattern = Environment.defaultCoverletExclude
+    let resultsDir = Path.getFullName Environment.defaultTestResultsDir |> Path.normalizeFileName
+    let coverageJson = resultsDir @@ "coverage.json"
+    let isBuildServer = BuildServer.buildServer = TeamFoundation || Environment.publishTestResults
+
+    let merge = if File.exists coverageJson then [("MergeWith", coverageJson)] else []
+    let props = merge @ [
+      ("CollectCoverage", if coverage then "true" else "false")
+      ("CoverletOutput", sprintf "%s\\" resultsDir)
+      ("CoverletOutputFormat", "json,cobertura,teamcity")
+      ("Include", includePattern)
+      ("Exclude", excludePattern)
+      ("SkipAutoProps", "true")
+    ]
+    
+    let defaultOptions (o: DotNet.TestOptions) = 
+      { o with 
+          Configuration = DotNet.BuildConfiguration.Debug
+          Filter = Some filter
+          ResultsDirectory = Some resultsDir
+          Logger = if isBuildServer then Some "trx" else None
+          Collect = if isBuildServer then Some "Code Coverage" else None
+          MSBuildParams = { 
+            o.MSBuildParams with 
+              NoWarn = Some ["CS1591"]
+              Properties = props } }
+
+    let dotnet project = 
+      printfn "running tests for `%s`" project
+      DotNet.test (defaultOptions >> options) project
+      project
+
+    props |> List.iter (fun (x, y) -> printfn "(%s, %s)" x y)
+    projects |> Seq.toList |> List.map dotnet
+
+  let runUnitTestsWithFilter filter = runTests true filter (fun (o: DotNet.TestOptions) -> o)
+  let runUnitTests (projects: IGlobbingPattern) = runUnitTestsWithFilter DefaultUnitTestFilter projects
+  let runSeleniumTestsWithFilter filter = runTests false filter (fun (o: DotNet.TestOptions) -> o)
+  let runSeleniumTests (projects: IGlobbingPattern) = runSeleniumTestsWithFilter DefaultSeleniumTestFilter projects
 
   /// runs NUnit with DotCover Code Coverage, filter is optional and so will
   /// default to "(TestCategory!=integration)&(TestCategory!=Integration)" when none is provided
   /// this is essentially the same as `dotcover "dotnet test"`, returns the full path
   /// to the output snapshot file
-  let runTestsCoverage (slnFile: string) project outDir (filter:string option) (configuration: DotNet.BuildConfiguration) =
-    //let logDir = outDir
-    let slnName = System.IO.Path.GetFileNameWithoutExtension slnFile
-    let snapshotPath = outDir @@ (slnName + ".DotCover.snapshot")
-    let testargs =
-      [
-        ["test"]
-        [slnFile]
-        ["--configuration"; (configuration |> tostr |> tolower)]
-        ["--no-build"]
-        ["--no-restore"]
-        ["--filter"; (if filter.IsNone then DefaultFilter else filter.Value)]
-        ["/nodeReuse:False"]
-        ["-noconsolelogger"]
-      ]
-      |> List.concat
-      |> Args.toWindowsCommandLine
+  //let runTestsCoverage (slnFile: string) project outDir (filter:string option) (configuration: DotNet.BuildConfiguration) =
+  //  //let logDir = outDir
+  //  let slnName = System.IO.Path.GetFileNameWithoutExtension slnFile
+  //  let snapshotPath = outDir @@ (slnName + ".DotCover.snapshot")
+  //  let testargs =
+  //    [
+  //      ["test"]
+  //      [slnFile]
+  //      ["--configuration"; (configuration |> tostr |> tolower)]
+  //      ["--no-build"]
+  //      ["--no-restore"]
+  //      ["--filter"; (if filter.IsNone then DefaultFilter else filter.Value)]
+  //      ["/nodeReuse:False"]
+  //      ["-noconsolelogger"]
+  //    ]
+  //    |> List.concat
+  //    |> Args.toWindowsCommandLine
 
-    let coverargs =
-      [
-        Arg ("TargetExecutable", DotNet.Options.Create().DotNetCliPath)
-        Arg ("TargetArguments", testargs)
-        Arg ("Filters", sprintf "+:module=%s*;-:*.Tests" project)
-        Arg ("Output", snapshotPath)
-        //("LogFile", sprintf "%s\\%s.DotCover.cover.log" logDir slnName, true)
-      ]
-      |> Util.toCommandLine "cover" Default
+  //  let coverargs =
+  //    [
+  //      Arg ("TargetExecutable", DotNet.Options.Create().DotNetCliPath)
+  //      Arg ("TargetArguments", testargs)
+  //      Arg ("Filters", sprintf "+:module=%s*;-:*.Tests" project)
+  //      Arg ("Output", snapshotPath)
+  //      //("LogFile", sprintf "%s\\%s.DotCover.cover.log" logDir slnName, true)
+  //    ]
+  //    |> Util.toCommandLine "cover" Default
 
-    Trace.tracefn "%s %s" Environment.dotCoverPath coverargs
-    Shell.Exec (Environment.dotCoverPath, coverargs) |> ignore
-    snapshotPath
+  //  Trace.tracefn "%s %s" Environment.dotCoverPath coverargs
+  //  Shell.Exec (Environment.dotCoverPath, coverargs) |> ignore
+  //  snapshotPath
 
   ///runs DotCover merge process. Takes multiple snapshot files and merges them into one. e.g., if there are three
   ///solution spaces in a repository, this merges them all into one file by the name {project}.DotCover.snapshot
   ///and places it in the {snapshotDir}. returns the full path to the output snapshot file
-  let runDotCoverMerge snapshotDir project =
-    let snapshots = !! (snapshotDir @@ "*.snapshot") |> Seq.toList
-    let mergedFile = snapshotDir @@ (sprintf "%s.DotCover.snapshot" project)
 
-    match snapshots with
-    | [] ->  None
-    | [head] when mergedFile <> head ->
-      Shell.rename mergedFile head
-      Some mergedFile
-    | [head] when mergedFile = head ->
-      Some head
-    | _ ->
-      let sourcearg = (snapshots |> String.concat ";")
-      let coverargs =
-        [
-          Arg ("Source", sourcearg)
-          Arg ("Output", mergedFile)
-        ]
-        |> Util.toCommandLine "merge" Default
+  //let runDotCoverMerge snapshotDir project =
+  //  let snapshots = !! (snapshotDir @@ "*.snapshot") |> Seq.toList
+  //  let mergedFile = snapshotDir @@ (sprintf "%s.DotCover.snapshot" project)
 
-      Trace.tracefn "%s %s" Environment.dotCoverPath coverargs
-      Shell.Exec(Environment.dotCoverPath, coverargs) |> ignore
-      snapshots |> List.iter File.delete
-      Some mergedFile
+  //  match snapshots with
+  //  | [] ->  None
+  //  | [head] when mergedFile <> head ->
+  //    Shell.rename mergedFile head
+  //    Some mergedFile
+  //  | [head] when mergedFile = head ->
+  //    Some head
+  //  | _ ->
+  //    let sourcearg = (snapshots |> String.concat ";")
+  //    let coverargs =
+  //      [
+  //        Arg ("Source", sourcearg)
+  //        Arg ("Output", mergedFile)
+  //      ]
+  //      |> Util.toCommandLine "merge" Default
 
-  /// creates a report for a snapshot file. two primary report types are XML and HTML.
-  /// given the input {snapshotFile} outputs the resulting {reportName}.DotCover.{reportType}
-  /// file in {snapshotDir}. returns the full path to the output report
-  let runDotCoverReport snapshotDir snapshotFile reportName reportType =
-    let reportFile = snapshotDir @@ sprintf "%s.DotCover.%s" reportName reportType
-    let coverargs =
-      [
-        Arg ("Source", snapshotFile)
-        Arg ("Output", reportFile)
-        Arg ("ReportType", reportType)
-        Arg ("HideAutoProperties", bstr true)
-      ]
-      |> Util.toCommandLine "report" Default
+  //    Trace.tracefn "%s %s" Environment.dotCoverPath coverargs
+  //    Shell.Exec(Environment.dotCoverPath, coverargs) |> ignore
+  //    snapshots |> List.iter File.delete
+  //    Some mergedFile
 
-    Trace.tracefn "%s %s" Environment.dotCoverPath coverargs
-    Shell.Exec(Environment.dotCoverPath, coverargs) |> ignore
-    reportFile
+  ///// creates a report for a snapshot file. two primary report types are XML and HTML.
+  ///// given the input {snapshotFile} outputs the resulting {reportName}.DotCover.{reportType}
+  ///// file in {snapshotDir}. returns the full path to the output report
+  //let runDotCoverReport snapshotDir snapshotFile reportName reportType =
+  //  let reportFile = snapshotDir @@ sprintf "%s.DotCover.%s" reportName reportType
+  //  let coverargs =
+  //    [
+  //      Arg ("Source", snapshotFile)
+  //      Arg ("Output", reportFile)
+  //      Arg ("ReportType", reportType)
+  //      Arg ("HideAutoProperties", bstr true)
+  //    ]
+  //    |> Util.toCommandLine "report" Default
 
-  /// extracts the integer percent result from an XML file
-  let extractCoverage (xpath: string option) xmlPath =
-    let xp = if xpath.IsNone then "/Root/@CoveragePercent" else xpath.Value
-    let (_, value) = Xml.read_Int false xmlPath "" "" xp
-    value
+  //  Trace.tracefn "%s %s" Environment.dotCoverPath coverargs
+  //  Shell.Exec(Environment.dotCoverPath, coverargs) |> ignore
+  //  reportFile
 
+  ///// extracts the integer percent result from an XML file
+  //let extractCoverage (xpath: string option) xmlPath =
+  //  let xp = if xpath.IsNone then "/Root/@CoveragePercent" else xpath.Value
+  //  let (_, value) = Xml.read_Int false xmlPath "" "" xp
+  //  value
 
-  let buildCodeExt slnRoot version (props: (string * string) list) (config: (DotNet.BuildOptions -> DotNet.BuildOptions) option) =
-    ensureUnitAdapters slnRoot
-    ensureSeleniumAdapters slnRoot
-
-    let defaultOpt = fun (p: DotNet.BuildOptions) ->
-      { p with
-          Configuration = DotNet.BuildConfiguration.Debug
-          MSBuildParams =
-            { p.MSBuildParams with
-                NodeReuse = false
-                NoWarn = msbNowarn
-                Properties = msbPropertiesAppend version props
-                BinaryLoggers = Some []
-                FileLoggers = Some []
-                DistributedLoggers = Some []
-                Loggers = Some []
-                DisableInternalBinLog = true
-                NoConsoleLogger = false
-            }
-      }
-
-    let options =
-      match config with
-      | Some _ -> defaultOpt >> config.Value
-      | None   -> defaultOpt
-
-    DotNet.build options slnRoot
-
-  let buildCode slnRoot version  =
-    buildCodeExt slnRoot version [] None 
-  
 
 [<RequireQualifiedAccess>]
 module Selenium =
@@ -529,7 +560,7 @@ module Selenium =
     Fake.Core.Environment.setEnvironVar "webdriver.browser.runheadless" <| string Environment.runHeadless
     Fake.Core.Environment.setEnvironVar "selenium.screenshot.directory" shotsDir
 
-    let logger = if Environment.addTeamCityAdapter then "teamcity" else "console"
+    let logger = if Environment.ensureCoverlet then "teamcity" else "console"
     let exe = DotNet.Options.Create().DotNetCliPath
     let args =
       [
@@ -617,32 +648,32 @@ module Targets =
   /// creates a Fake Target that takes a sequence of solutionFile * optional filter to run
   /// unit tests for and ultimately merging the results into one coverage result when
   /// code coverage is enabled
-  let testExt (slnFiles: seq<string * string option>) project outDir (configuration: DotNet.BuildConfiguration)=
-    fun (_: TargetParameter) ->
-      match Environment.runCoverage with
-      | true ->
-        slnFiles 
-          |> Seq.iter (fun (file, filter) -> Build.runTestsCoverage file project outDir filter configuration |> ignore)
-        Build.runDotCoverMerge outDir project
-          |> fun snapshot ->
-                match snapshot with
-                | Some file ->
-                    Build.runDotCoverReport outDir file project "HTML" |> ignore
-                    Build.runDotCoverReport outDir file project "XML"
-                      |> Build.extractCoverage Default
-                      |> sprintf "Coverage: %i%%"
-                      |> Trace.tracefn "##vso[buildStatus text='{build.status.text}, %s']"
+  //let testExt (slnFiles: seq<string * string option>) project outDir (configuration: DotNet.BuildConfiguration)=
+  //  fun (_: TargetParameter) ->
+  //    match Environment.runCoverage with
+  //    | true ->
+  //      slnFiles 
+  //        |> Seq.iter (fun (file, filter) -> Build.runTestsCoverage file project outDir filter configuration |> ignore)
+  //      Build.runDotCoverMerge outDir project
+  //        |> fun snapshot ->
+  //              match snapshot with
+  //              | Some file ->
+  //                  Build.runDotCoverReport outDir file project "HTML" |> ignore
+  //                  Build.runDotCoverReport outDir file project "XML"
+  //                    |> Build.extractCoverage Default
+  //                    |> sprintf "Coverage: %i%%"
+  //                    |> Trace.tracefn "##vso[buildStatus text='{build.status.text}, %s']"
 
-                    Trace.tracefn "##vso[importData type='dotNetCoverage' tool='dotcover' path='%s']" file
-                | None -> ()
-      | false ->
-        slnFiles |> Seq.iter (fun (file, filter) -> Build.runTestsNoCoverage file project outDir filter configuration |> ignore )
+  //                  Trace.tracefn "##vso[importData type='dotNetCoverage' tool='dotcover' path='%s']" file
+  //              | None -> ()
+  //    | false ->
+  //      slnFiles |> Seq.iter (fun (file, filter) -> Build.runTestsNoCoverage file project outDir filter configuration |> ignore )
 
-  /// creates a Fake Target that takes a sequence of solutionFile * optional filter to run
-  /// unit tests for and ultimately merging the results into one coverage result when
-  /// code coverage is enabled
-  let test (slnFiles: seq<string * string option>) project outDir =
-    testExt slnFiles project outDir DotNet.BuildConfiguration.Debug
+  ///// creates a Fake Target that takes a sequence of solutionFile * optional filter to run
+  ///// unit tests for and ultimately merging the results into one coverage result when
+  ///// code coverage is enabled
+  //let test (slnFiles: seq<string * string option>) project outDir =
+  //  testExt slnFiles project outDir DotNet.BuildConfiguration.Debug
 
   /// publishes all contents of binDir
   let publish binDir =
