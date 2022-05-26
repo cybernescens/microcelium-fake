@@ -126,7 +126,7 @@ module Environment =
   let defaultCoverletInclude = Util.environVarOrDefault ["CoverletInclude"] "[DataDx.*]*,[Microcelium.*]*"
 
   /// the exclude pattern for coverlet
-  let defaultCoverletExclude = Util.environVarOrDefault ["CoverletExclude"] "[*.Tests]*,[*.SeleniumTests]*,[Microcelium.Testing*]*,[DataDx.Testing*]*"
+  let defaultCoverletExclude = Util.environVarOrDefault ["CoverletExclude"] "[*.Api]*,[*.Data]*,[*.Tests]*,[*.SeleniumTests]*,[Microcelium.Testing*]*,[DataDx.Testing*]*"
 
   /// publish test results when running tests. default is 0
   let publishTestResults = Util.environVarOrDefault ["PublishTestResults"] "0" = "1"
