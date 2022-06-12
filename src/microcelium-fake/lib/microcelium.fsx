@@ -451,7 +451,7 @@ module Testing =
           Filter = Some filter
           ResultsDirectory = Some resultsDir
           Logger = if isBuildServer then Some "trx" else None
-          Collect = if isBuildServer then Some "Code Coverage" else None
+          Collect = if isBuildServer then Some "XPlat Code Coverage" else None
           MSBuildParams = { 
             o.MSBuildParams with 
               NoWarn = Some ["CS1591"]
