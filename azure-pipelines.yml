@@ -25,9 +25,9 @@ steps:
     forceReinstallCredentialProvider: true
 - bash: export Version="$(VersionPrefix).$(VersionSuffix)" && ./build.sh
 - task: NuGetCommand@2
-      inputs:
-        command: 'push'
-        packagesToPush: '$(Build.BinariesDirectory)/**/*.nupkg'
-        publishVstsFeed: 'DataDx/DataDxNuget'
+  inputs:
+    command: 'push'
+    packagesToPush: '$(Build.BinariesDirectory)/**/*.nupkg'
+    publishVstsFeed: 'DataDx/DataDxNuget'
 - bash: git tag $(Build.BuildNumber) && git push origin $(Build.BuildNumber)
   workingDirectory: $(Build.SourcesDirectory)
