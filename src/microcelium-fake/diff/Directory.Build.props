@@ -1,14 +1,19 @@
 <Project>
   <PropertyGroup>
-    <Authors>microcelium</Authors>
-    <Copyright>Copyright microcelium @ {year}</Copyright>
-    <Product>{project}</Product>
     <GenerateDocumentationFile Condition="'$(GenerateDocumentationFile)' ==''">true</GenerateDocumentationFile>
     <DebugType>embedded</DebugType>
     <DebugSymbols>true</DebugSymbols>
     <IncludeSymbolsInPackage>true</IncludeSymbolsInPackage>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
-    <DefineConstants Condition="'$(COMPUTERNAME)' == 'joe-thinkpad'">$(DefineConstants);DEVELOPER_MACHINE</DefineConstants>
+    <RollForward>Minor</RollForward>
+    <LangVersion>Preview</LangVersion>
+    <EnablePreviewFeatures>true</EnablePreviewFeatures>
+    <RestoreIgnoreFailedSources>true</RestoreIgnoreFailedSources>
+    <DisableImplicitNuGetFallbackFolder>true</DisableImplicitNuGetFallbackFolder>
+    <Authors Condition="'$(Authors)' == ''">DataDx, LLC</Authors>
+    <Copyright Condition="'$(Copyright)' == ''">Copyright DataDx®, LLC @ {year}</Copyright>
+    <Product Condition="'$(Product)' == ''">Insights - {project}</Product>
+    <DeveloperMachine Condition="'$(COMPUTERNAME)' == 'joe-nuc' Or '$(COMPUTERNAME)' == 'joe-thinkpad' Or '$(COMPUTERNAME)' == 'DESKTOP-T77TGES'">true</DeveloperMachine>
   </PropertyGroup>
 </Project>

@@ -1,4 +1,5 @@
 ﻿#r "paket:
+nuget BlackFox.Fake.BuildTask
 nuget JetBrains.dotCover.CommandLineTools
 nuget Fake.BuildServer.TeamFoundation
 nuget Fake.Core.Xml
@@ -11,15 +12,20 @@ nuget Fake.IO.FileSystem
 nuget Fake.IO.Zip
 nuget Fake.Runtime
 //"
-#load "../lib/microcelium.fsx"
-(*#load ".fake/build.fsx/intellisense.fsx"*)
+#load ".microcelium/lib/microcelium.fsx"
+
+#if !FAKE
+#load ".fake/build.fsx/intellisense.fsx"
+#r "netstandard"
+#endif
+
+open BlackFox.Fake
 open Fake.Core
 open Fake.BuildServer
 open Fake.DotNet
 open Fake.IO
 open Fake.IO.FileSystemOperators
 open Fake.IO.Globbing.Operators
-open Fake.Core.TargetOperators
 open Microcelium.Fake
 
 BuildServer.install [ TeamFoundation.Installer ]
@@ -36,12 +42,14 @@ if BuildServer.buildServer = LocalBuild then
   let version = Version.fromFile "filepath" //looks for a file @ "filepath"
 *)
 
-let version = Version.from "1.0" //parses from param
+let version = Version.fromEnvironment ()
 let versionparts = Version.parts version
 let versionstr = Version.toString version
 
-let srcDir = Path.getFullName "./src"
-let binDir = Environment.defaultBinDir
+let fullpath = Path.getFullName << Path.normalizeFileName
+
+let srcDir = fullpath "./src"
+let binDir = fullpath (Microcelium.Fake.Environment.defaultBinDir)
 
 let project = "{project}"
 let tests = seq { yield (srcDir, Default) }
