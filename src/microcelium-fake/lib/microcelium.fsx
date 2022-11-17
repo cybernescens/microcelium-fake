@@ -400,6 +400,7 @@ module Testing =
   open Fake.IO
   open Fake.IO.FileSystemOperators
   open Fake.IO.Globbing.Operators
+
   
   [<Literal>]
   let DefaultUnitTestFilter = "(TestCategory!=integration)&(TestCategory!=Integration)"
@@ -434,7 +435,7 @@ module Testing =
     let resultsDir = Path.getFullName Environment.defaultTestResultsDir |> Path.normalizeFileName
     let coverageJson = resultsDir @@ "coverage.json"
     let isBuildServer = BuildServer.buildServer = TeamFoundation || Environment.publishTestResults
-
+    
     let merge = if File.exists coverageJson then [("MergeWith", coverageJson)] else []
     let props = merge @ [
       ("CollectCoverage", if coverage then "true" else "false")
@@ -455,14 +456,20 @@ module Testing =
           MSBuildParams = { 
             o.MSBuildParams with 
               NoWarn = Some ["CS1591"]
-              Properties = o.MSBuildParams.Properties @ props @ (if failThreshold.IsSome then [("Threshold", failThreshold.Value)] else []) } }
+              Properties = o.MSBuildParams.Properties @ props @ (if failThreshold.IsSome then [("Threshold", failThreshold.Value)] else []) 
+              NodeReuse = false
+              BinaryLoggers = Some []
+              FileLoggers = Some []
+              DistributedLoggers = Some []
+              Loggers = Some []
+              DisableInternalBinLog = true
+              NoConsoleLogger = false } }
 
     let dotnet project = 
       printfn "running tests for `%s`" project
       DotNet.test (defaultOptions >> options) project
       project
 
-    props |> List.iter (fun (x, y) -> printfn "(%s, %s)" x y)
     projects |> Seq.toList |> List.map dotnet
 
   let runUnitTestsWithFilter filter = runTests true filter (fun (o: DotNet.TestOptions) -> o)
