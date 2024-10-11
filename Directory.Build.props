@@ -2,9 +2,9 @@
   <PropertyGroup>
     <Company>DataDx</Company>
     <GenerateDocumentationFile Condition="'$(GenerateDocumentationFile)' ==''">true</GenerateDocumentationFile>
-    <DebugType Condition="'$(DebugType)' ==''">portable</DebugType>
-    <DebugSymbols Condition="'$(DebugSymbols)' ==''">true</DebugSymbols>
-    <IncludeSymbolsInPackage Condition="'$(IncludeSymbolsInPackage)' == ''">true</IncludeSymbolsInPackage>
+    <DebugType>embedded</DebugType>
+    <DebugSymbols>true</DebugSymbols>
+    <IncludeSymbolsInPackage>true</IncludeSymbolsInPackage>
     <AllowedOutputExtensionsInPackageBuildOutputFolder>$(AllowedOutputExtensionsInPackageBuildOutputFolder);.pdb;</AllowedOutputExtensionsInPackageBuildOutputFolder>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
