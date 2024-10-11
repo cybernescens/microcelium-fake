@@ -48,10 +48,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Content Remove="C:\Users\joe\.nuget\packages\fake.runtime\5.23.1\contentFiles\any\net6.0\cachedDotnetSdkReleases.json" />
-  </ItemGroup>
-
-  <ItemGroup>
     <Compile Include="shared.fs" />
     <Compile Include="program.fs" />
   </ItemGroup>
