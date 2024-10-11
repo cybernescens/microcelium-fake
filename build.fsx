@@ -20,9 +20,6 @@ BuildServer.install [ TeamFoundation.Installer ]
 if BuildServer.buildServer = LocalBuild then
   CoreTracing.ensureConsoleListener ()
 
-(* read EnvVar
-  let myEnvVar = Util.environVarOrDefault ["myEnvVarKey1"; "myEnvVarKey2"] "default value"
-*)
 
 let version = Version.fromEnvironment () //gets it from the environment
 let versionparts = Version.parts version

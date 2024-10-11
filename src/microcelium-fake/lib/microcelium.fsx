@@ -134,11 +134,26 @@ module Environment =
   /// gets the calculated version patch number, e.g. 1.0.PATCH_NUMBER
   let patchNumber = Util.environVarOrDefault ["BUILD_PATCHNUMBER"] "0"
 
-  /// gets any passed in VersionPrefix value or uses "1.0"
-  let version = Util.environVarOrDefault ["Version"] "1.0"
-
   /// do not increment version during build
   let doNotIncrement = (Util.environVarOrDefault ["DO_NOT_INCREMENT"; "doNotIncrement"; "DoNotIncrement"] "0") = "1"
+
+  /// gets any passed in VersionPrefix value or uses "1.0"
+  let version = 
+    let versiontmp = Util.environVarOrNone ["Version"]
+    let prefix = Util.environVarOrNone ["VersionPrefix"]
+    let suffix = Util.environVarOrNone ["VersionSuffix"]
+    let isMatch pattern test = System.Text.RegularExpressions.Regex.IsMatch(pattern, test)
+
+    match versiontmp with
+    | Some v -> v
+    | None -> match (prefix, suffix) with
+              | (Some x, Some y) when isMatch "^\\d+$" y -> sprintf "%s.%s" x y
+              | (Some x, Some y) when isMatch "^-.+$" y -> sprintf "%s%s" x y
+              | (Some x, Some y) -> sprintf "%s-%s" x y
+              | (Some x, None) -> sprintf "%s" x
+              | (None, Some _) -> failwith "unable to interpret version from just VersionSuffix"
+              | (None, None) -> if BuildServer.buildServer = LocalBuild && not <| doNotIncrement then "0.0" else "1.0"
+
 
 [<RequireQualifiedAccess>]
 module Version =
@@ -148,21 +163,27 @@ module Version =
 
   type Entry = { prefix: string; suffix: string; raw: string }
 
-  let internal prefix = sprintf "%s.%s"
+  //3.0.0.0 -> 3.0.1.0-developer
+  //3.0.0.1 -> 3.0.1.0-developer
+  //3.0.0 -> 3.1.0-developer
+  //3.0 -> 4.0-developer
 
   let internal increment (v : string) =
     v.Split '.'
     |> (fun x ->
           match x with
-            | [|maj;min;pat|]            -> sprintf "%d.%d.%d" (int maj) (int min) (int pat + 1 )
-            | [|maj;min|]                -> sprintf "%d.%d" (int maj) (int min + 1)
-            | _                          -> failwithf "Cannot understand version: '%s'" v)
+            | [|maj;min;pat;_|] -> sprintf "%d.%d.%d.%d" (int maj) (int min) (int pat + 1) 0
+            | [|maj;min;_|]     -> sprintf "%d.%d.%d" (int maj) (int min + 1) 0
+            | [|maj;_|]         -> sprintf "%d.%d" (int maj + 1) 0
+            | _                 -> failwithf "Cannot understand version: '%s'" v)
 
   /// creates a version from either "major.minor" or "major.minor.patch" form
-  let from v =
-    match (BuildServer.buildServer, Environment.doNotIncrement) with
-    | (LocalBuild, false) -> { prefix = prefix (increment v) "0"; suffix = "developer"; raw = v }
-    | _                   -> { prefix = v; suffix = ""; raw = v }
+  let from (v: string) =
+    match (BuildServer.buildServer, Environment.doNotIncrement, v.Split '.' |> Array.length) with
+    | (LocalBuild, false, 4) -> { prefix = increment v; suffix = "developer"; raw = v }
+    | (LocalBuild, false, 3) -> { prefix = increment v; suffix = "developer"; raw = v }
+    | (LocalBuild, false, 2) -> { prefix = increment v; suffix = "developer"; raw = v }
+    | _                      -> { prefix = v; suffix = ""; raw = v }
 
   /// reads version from the first line of the provided file
   let fromFile file = from <| File.readLine file

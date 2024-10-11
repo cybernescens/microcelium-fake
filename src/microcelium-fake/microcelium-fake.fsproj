@@ -10,13 +10,13 @@
   </PropertyGroup>
 
   <ItemGroup Condition="'$(CompileLib)' == 'true'">
-    <PackageReference Include="Fake.BuildServer.TeamFoundation" Version="5.21.0" />
+    <PackageReference Include="Fake.BuildServer.TeamFoundation" Version="5.22.0" />
     <PackageReference Include="FSharp.Core" Version="6.0.1" />
-    <PackageReference Include="Fake.Core.Target" Version="5.21.0" />
-    <PackageReference Include="Fake.DotNet.Cli" Version="5.21.0" />
-    <PackageReference Include="Fake.IO.Zip" Version="5.21.0" />
-    <PackageReference Include="Fake.Runtime" Version="5.21.0" />
-    <PackageReference Include="FSharp.Compiler.Service" version="41.0.1" />
+    <PackageReference Include="Fake.Core.Target" Version="5.22.0" />
+    <PackageReference Include="Fake.DotNet.Cli" Version="5.22.0" />
+    <PackageReference Include="Fake.IO.Zip" Version="5.22.0" />
+    <PackageReference Include="Fake.Runtime" Version="5.22.0" />
+    <PackageReference Include="FSharp.Compiler.Service" version="41.0.4" />
     <PackageReference Include="FSharp.CommandLine" Version="3.3.3805.29705" />
   </ItemGroup>
 

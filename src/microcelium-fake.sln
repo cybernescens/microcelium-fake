@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 16
-VisualStudioVersion = 16.0.29025.244
+# Visual Studio Version 17
+VisualStudioVersion = 17.3.32505.426
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".build", ".build", "{B9AF388A-C8DF-47C1-B1A1-21DEAFEB2673}"
 	ProjectSection(SolutionItems) = preProject
@@ -9,6 +9,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".build", ".build", "{B9AF38
 		..\build.fsx = ..\build.fsx
 		..\Directory.Build.props = ..\Directory.Build.props
 		..\global.json = ..\global.json
+		..\nuget.config = ..\nuget.config
 	EndProjectSection
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "microcelium-fake", "microcelium-fake\microcelium-fake.fsproj", "{1C698186-6F43-40B5-840A-1B16CBB56300}"
@@ -28,7 +29,7 @@ Global
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
-		SolutionGuid = {0B8E9DE5-AED1-4317-9644-A24DE1AB814D}
 		    SolutionGuid = {52879783-11A9-42C3-A7DB-8B2CF27D9F72}
+		SolutionGuid = {0B8E9DE5-AED1-4317-9644-A24DE1AB814D}
 	EndGlobalSection
 EndGlobal
